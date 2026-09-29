@@ -1,0 +1,81 @@
+🚀 GUIA RÁPIDO - Fazer Funcionar os Roteiros
+
+═══════════════════════════════════════════════════════════════════
+
+⚠️ O ERRO 404 ACONTECE PORQUE:
+   → O servidor NÃO foi reiniciado após adicionar as novas rotas
+   → As rotas de roteiros não estão carregadas no Express
+
+═══════════════════════════════════════════════════════════════════
+
+✅ SOLUÇÃO EM 4 PASSOS:
+
+1️⃣ PARAR O SERVIDOR ATUAL
+   → Pressione Ctrl+C no terminal onde o servidor está rodando
+   → Ou mate os processos Node.js antigos
+
+2️⃣ VERIFICAR SE HÁ LOJAS COM ZONA
+   → Acesse seu banco de dados (Render.com, pgAdmin ou DBeaver)
+   → Execute: SELECT id, nome, zona FROM lojas WHERE ativo = true;
+   → Se zona = NULL em todas, execute:
+   
+   UPDATE lojas SET zona = 'Norte' WHERE id = 'id-da-loja-1';
+   UPDATE lojas SET zona = 'Sul' WHERE id = 'id-da-loja-2';
+   -- etc
+
+3️⃣ REINICIAR O SERVIDOR
+   → No terminal, execute: npm start
+   → Aguarde mensagem: "Servidor rodando na porta 3001"
+
+4️⃣ TESTAR NO FRONTEND
+   → Recarregue a página de roteiros
+   → Clique em "Gerar 6 Roteiros Diários"
+
+═══════════════════════════════════════════════════════════════════
+
+🔍 POSSÍVEIS PROBLEMAS E SOLUÇÕES:
+
+PROBLEMA: "Não há lojas ativas para gerar roteiros"
+SOLUÇÃO: 
+   → Verifique: SELECT COUNT(*) FROM lojas WHERE ativo = true;
+   → Se retornar 0, ative lojas: UPDATE lojas SET ativo = true;
+
+PROBLEMA: Lojas sem zona
+SOLUÇÃO:
+   → Execute: UPDATE lojas SET zona = 'Norte' WHERE cidade IN (...);
+
+PROBLEMA: Servidor não inicia
+SOLUÇÃO:
+   → Verifique o .env tem DATABASE_URL configurado
+   → Ou configure variáveis locais (DB_HOST, DB_NAME, etc)
+
+═══════════════════════════════════════════════════════════════════
+
+📝 COMANDOS ÚTEIS:
+
+# Ver lojas e suas zonas
+SELECT id, nome, cidade, zona, ativo FROM lojas;
+
+# Atualizar zonas por cidade
+UPDATE lojas SET zona = 'Norte' WHERE cidade IN ('Santana', 'Tucuruvi');
+UPDATE lojas SET zona = 'Sul' WHERE cidade IN ('Santo Amaro', 'Jabaquara');
+UPDATE lojas SET zona = 'Leste' WHERE cidade IN ('Tatuapé', 'Penha');
+UPDATE lojas SET zona = 'Oeste' WHERE cidade IN ('Pinheiros', 'Butantã');
+UPDATE lojas SET zona = 'Centro' WHERE cidade IN ('Sé', 'República');
+
+# Ver quantas máquinas por loja
+SELECT l.nome, COUNT(m.id) as total_maquinas 
+FROM lojas l 
+LEFT JOIN maquinas m ON l.id = m."lojaId" AND m.ativo = true
+GROUP BY l.id, l.nome;
+
+═══════════════════════════════════════════════════════════════════
+
+✨ DEPOIS QUE FUNCIONAR:
+
+1. Gerar roteiros funcionará ✅
+2. Você verá 6 roteiros criados
+3. Cada roteiro terá lojas da mesma zona
+4. Poderá selecionar e iniciar roteiros
+
+═══════════════════════════════════════════════════════════════════

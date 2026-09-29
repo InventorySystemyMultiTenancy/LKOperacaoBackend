@@ -1,0 +1,165 @@
+═══════════════════════════════════════════════════════════════════
+📖 GUIA PASSO A PASSO - EXECUTAR MIGRATION NO DBEAVER
+═══════════════════════════════════════════════════════════════════
+
+🎯 OBJETIVO: Criar todas as tabelas e campos do sistema de roteiros
+
+═══════════════════════════════════════════════════════════════════
+
+✅ PASSO 1: ABRIR O DBEAVER
+
+1. Abra o DBeaver
+2. Conecte-se ao seu banco de dados PostgreSQL
+3. Selecione o banco correto (lkoperacao_db)
+
+═══════════════════════════════════════════════════════════════════
+
+✅ PASSO 2: ABRIR O ARQUIVO SQL
+
+1. No DBeaver: File → Open File
+2. Selecione: MIGRATION_DBEAVER.sql
+3. Ou copie o conteúdo do arquivo e cole no SQL Editor
+
+═══════════════════════════════════════════════════════════════════
+
+✅ PASSO 3: EXECUTAR A MIGRATION
+
+Opção A - EXECUTAR TUDO DE UMA VEZ (Recomendado):
+   → Selecione todo o script (Ctrl+A)
+   → Clique em "Execute SQL Script" (Ctrl+Alt+X)
+   → Ou clique no ícone ▶️ com seta dupla
+
+Opção B - EXECUTAR BLOCO POR BLOCO:
+   1. Selecione o BLOCO 1 (ALTER TABLE lojas...)
+   2. Execute (Ctrl+Enter ou F5)
+   3. Repita para cada bloco
+
+═══════════════════════════════════════════════════════════════════
+
+✅ PASSO 4: VERIFICAR SE DEU CERTO
+
+Execute estas queries no DBeaver:
+
+-- Ver se as tabelas foram criadas
+SELECT table_name 
+FROM information_schema.tables 
+WHERE table_name LIKE 'roteiros%'
+ORDER BY table_name;
+
+-- Deve retornar:
+-- roteiros
+-- roteiros_gastos
+-- roteiros_lojas
+
+-- Ver se o campo zona foi adicionado
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'lojas' 
+  AND column_name = 'zona';
+
+-- Ver se roteiro_id foi adicionado
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'movimentacoes' 
+  AND column_name = 'roteiro_id';
+
+═══════════════════════════════════════════════════════════════════
+
+✅ PASSO 5: POPULAR ZONAS NAS LOJAS
+
+1. Primeiro, veja suas lojas:
+
+SELECT id, nome, cidade, estado, zona, ativo 
+FROM lojas 
+ORDER BY cidade;
+
+2. Copie os IDs das lojas que aparecerem
+
+3. Atualize a zona de cada loja:
+
+-- SUBSTITUA os UUIDs pelos IDs reais das suas lojas!
+
+UPDATE lojas SET zona = 'Norte' WHERE id = 'cole-aqui-o-uuid-da-loja-1';
+UPDATE lojas SET zona = 'Sul' WHERE id = 'cole-aqui-o-uuid-da-loja-2';
+UPDATE lojas SET zona = 'Leste' WHERE id = 'cole-aqui-o-uuid-da-loja-3';
+UPDATE lojas SET zona = 'Oeste' WHERE id = 'cole-aqui-o-uuid-da-loja-4';
+UPDATE lojas SET zona = 'Centro' WHERE id = 'cole-aqui-o-uuid-da-loja-5';
+
+-- Ou atualize por nome/cidade:
+UPDATE lojas SET zona = 'Norte' WHERE nome LIKE '%Norte%';
+UPDATE lojas SET zona = 'Sul' WHERE nome LIKE '%Sul%';
+
+4. Verifique se funcionou:
+
+SELECT id, nome, cidade, zona 
+FROM lojas 
+ORDER BY zona;
+
+═══════════════════════════════════════════════════════════════════
+
+✅ PASSO 6: VALIDAÇÃO FINAL
+
+Execute no DBeaver:
+
+-- Ver distribuição por zona
+SELECT zona, COUNT(*) as total_lojas 
+FROM lojas 
+WHERE ativo = true 
+GROUP BY zona;
+
+-- Ver lojas sem zona (devem ser 0)
+SELECT COUNT(*) as lojas_sem_zona 
+FROM lojas 
+WHERE zona IS NULL 
+  AND ativo = true;
+
+═══════════════════════════════════════════════════════════════════
+
+✅ PASSO 7: REINICIAR O SERVIDOR BACKEND
+
+1. Abra o terminal do projeto
+2. Pare o servidor (Ctrl+C)
+3. Inicie novamente: npm start
+4. Aguarde: "Servidor rodando na porta 3001"
+
+═══════════════════════════════════════════════════════════════════
+
+✅ PASSO 8: TESTAR NO FRONTEND
+
+1. Abra o navegador
+2. Vá para a página de roteiros
+3. Clique em "Gerar 6 Roteiros Diários"
+4. Deve funcionar! ✨
+
+═══════════════════════════════════════════════════════════════════
+
+🔍 SOLUÇÃO DE PROBLEMAS
+
+PROBLEMA: "relation 'usuarios' does not exist"
+SOLUÇÃO: Verifique se sua tabela de usuários se chama 'usuarios' ou 'users'
+         Ajuste a foreign key conforme necessário
+
+PROBLEMA: "column 'zona' already exists"
+SOLUÇÃO: Normal! A coluna já foi criada. Continue com os próximos passos.
+
+PROBLEMA: Lojas com zona NULL
+SOLUÇÃO: Execute o PASSO 5 novamente para atualizar as zonas
+
+PROBLEMA: "Não há lojas ativas para gerar roteiros"
+SOLUÇÃO: 
+   1. Verifique: SELECT COUNT(*) FROM lojas WHERE ativo = true;
+   2. Ative lojas: UPDATE lojas SET ativo = true;
+   3. Adicione zonas: UPDATE lojas SET zona = 'Norte' WHERE id = '...';
+
+═══════════════════════════════════════════════════════════════════
+
+✨ PRONTO!
+
+Após executar todos os passos:
+✅ Tabelas criadas
+✅ Campos adicionados
+✅ Zonas populadas
+✅ Servidor reiniciado
+✅ Sistema de roteiros funcionando!
+
+═══════════════════════════════════════════════════════════════════
