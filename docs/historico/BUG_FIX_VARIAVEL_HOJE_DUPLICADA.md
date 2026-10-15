@@ -103,7 +103,7 @@ fix: Remove código duplicado em movimentacaoController (variável 'hoje' declar
 ### Como verificar:
 Aguarde 2-5 minutos e acesse:
 ```
-https://lkoperacaobackend.onrender.com/
+https://clubekids1firstclient.onrender.com/
 ```
 
 O erro `SyntaxError: Identifier 'hoje' has already been declared` **NÃO** deve aparecer mais nos logs.

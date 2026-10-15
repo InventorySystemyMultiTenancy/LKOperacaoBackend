@@ -154,7 +154,7 @@
 ## 🗂️ Estrutura de Pastas
 
 ```
-LK Operação1FirstClient/
+ClubeKids1FirstClient/
 │
 ├── src/
 │   ├── models/

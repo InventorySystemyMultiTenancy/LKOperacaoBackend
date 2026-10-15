@@ -13,7 +13,7 @@ const createAdmin = async () => {
     await sequelize.sync();
     console.log("✅ Tabelas sincronizadas");
 
-    const adminEmail = process.env.ADMIN_EMAIL || "admin@lkoperacao.com";
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@agarramais.com";
     const adminPassword = process.env.ADMIN_PASSWORD || "Admin@123";
 
     // Verificar se já existe um admin

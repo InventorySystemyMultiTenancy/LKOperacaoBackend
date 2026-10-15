@@ -9,8 +9,8 @@ import {
 } from "../controllers/maquinaController.js";
 import {
   autenticar,
-  autorizarRole,
   registrarLog,
+  autorizarPermissao,
 } from "../middlewares/auth.js";
 
 const router = express.Router();
@@ -21,21 +21,21 @@ router.get("/:id/estoque", autenticar, obterEstoqueAtual);
 router.post(
   "/",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("maquinas.gerenciar", "ADMIN"),
   registrarLog("CRIAR_MAQUINA", "Maquina"),
   criarMaquina
 );
 router.put(
   "/:id",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("maquinas.gerenciar", "ADMIN"),
   registrarLog("EDITAR_MAQUINA", "Maquina"),
   atualizarMaquina
 );
 router.delete(
   "/:id",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("maquinas.gerenciar", "ADMIN"),
   registrarLog("DELETAR_MAQUINA", "Maquina"),
   deletarMaquina
 );

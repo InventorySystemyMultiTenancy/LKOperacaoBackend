@@ -8,7 +8,6 @@ import {
   Loja,
   RoteiroLoja,
   Roteiro,
-  CarrinhoUsuario,
   sequelize,
 } from "../models/index.js";
 import { Op } from "sequelize";
@@ -21,6 +20,7 @@ import {
   fecharFechamentoMachinePay,
   MachinePayServiceError,
 } from "../services/machinePayService.js";
+import { temPermissao } from "../utils/permissoes.js";
 
 // US08, US09, US10 - Registrar movimentação completa
 export const registrarMovimentacao = async (req, res) => {
@@ -452,101 +452,8 @@ export const registrarMovimentacao = async (req, res) => {
         }
       }
 
-      // ============================================
-      // DESCONTAR PRODUTOS DO CARRINHO DO USUÁRIO
-      // ============================================
-      
-      // Buscar carrinho ativo do usuário nadata corrente
-      const hoje = new Date().toISOString().split("T")[0];
-      const carrinhoUsuario = await CarrinhoUsuario.findOne({
-        where: {
-          usuarioId: req.usuario.id,
-          data: hoje,
-          ativo: true,
-        },
-      });
-
-      if (carrinhoUsuario) {
-        console.log("🛒 [registrarMovimentacao] Descontando produtos do carrinho:", {
-          carrinhoId: carrinhoUsuario.id,
-          usuarioId: req.usuario.id,
-        });
-
-        // Importar modelo CarrinhoItem
-        const { CarrinhoItem } = await import("../models/index.js");
-
-        // Transação + lock de linha: evita que duas movimentações concorrentes
-        // do mesmo usuário leiam o mesmo saldo e uma sobrescreva o desconto da outra
-        await sequelize.transaction(async (t) => {
-          for (const produto of produtosNormalizados) {
-            if (produto.quantidadeAbastecida && produto.quantidadeAbastecida > 0) {
-              // Buscar (e travar) item do carrinho correspondente
-              const carrinhoItem = await CarrinhoItem.findOne({
-                where: {
-                  carrinhoId: carrinhoUsuario.id,
-                  produtoId: produto.produtoId,
-                },
-                transaction: t,
-                lock: t.LOCK.UPDATE,
-              });
-
-              if (carrinhoItem) {
-                const quantidadeAnterior = carrinhoItem.quantidadeAtual;
-                // Não usar clamp em 0: se exceder o saldo, o valor fica negativo
-                // para refletir com precisão o quanto foi usado além do alocado
-                // (senão a devolução mostraria "esperado: 0" e esconderia o excedente real)
-                const novaQuantidade = quantidadeAnterior - produto.quantidadeAbastecida;
-
-                if (novaQuantidade < 0) {
-                  console.warn(
-                    "⚠️ [registrarMovimentacao] Abastecimento excedeu o saldo do carrinho:",
-                    {
-                      produtoId: produto.produtoId,
-                      quantidadeAnterior,
-                      quantidadeAbastecida: produto.quantidadeAbastecida,
-                      deficit: novaQuantidade,
-                    },
-                  );
-                }
-
-                console.log("📦 [registrarMovimentacao] Item do carrinho atualizado:", {
-                  produtoId: produto.produtoId,
-                  quantidadeAnterior,
-                  quantidadeAbastecida: produto.quantidadeAbastecida,
-                  novaQuantidade,
-                });
-
-                await carrinhoItem.update(
-                  { quantidadeAtual: novaQuantidade },
-                  { transaction: t },
-                );
-              } else {
-                console.log("⚠️ [registrarMovimentacao] Item não encontrado no carrinho:", {
-                  carrinhoId: carrinhoUsuario.id,
-                  produtoId: produto.produtoId,
-                });
-              }
-            }
-          }
-
-          // Atualizar quantidade total do carrinho
-          const totalCarrinhoAtual = await CarrinhoItem.sum("quantidadeAtual", {
-            where: { carrinhoId: carrinhoUsuario.id },
-            transaction: t,
-          });
-
-          await carrinhoUsuario.update(
-            { quantidadeAtual: totalCarrinhoAtual || 0 },
-            { transaction: t },
-          );
-
-          console.log("✅ [registrarMovimentacao] Carrinho atualizado:", {
-            quantidadeTotal: totalCarrinhoAtual || 0,
-          });
-        });
-      } else {
-        console.log("ℹ️ [registrarMovimentacao] Usuário não possui carrinho ativo hoje");
-      }
+      // O uso do carrinho do funcionário não é descontado aqui: é calculado
+      // a partir das movimentações em carrinhoUsuarioController (calcularUsoCarrinho)
     }
 
     // Atualizar contador de máquinas concluídas do roteiro
@@ -749,7 +656,7 @@ export const atualizarMovimentacao = async (req, res) => {
 
     // Apenas admin ou o próprio usuário que criou pode editar
     if (
-      req.usuario.role !== "ADMIN" &&
+      !temPermissao(req.usuario, "movimentacoes.gerenciar") &&
       movimentacao.usuarioId !== req.usuario.id
     ) {
       return res

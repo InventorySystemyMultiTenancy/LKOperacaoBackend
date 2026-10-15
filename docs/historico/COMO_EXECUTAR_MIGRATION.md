@@ -5,7 +5,7 @@
 ### Passo 1: Acessar o Shell
 
 1. Acesse: https://dashboard.render.com/
-2. Clique no seu serviço `lkoperacaobackend`
+2. Clique no seu serviço `backend-agarramais`
 3. Clique na aba **"Shell"** no menu superior
 4. Aguarde o terminal carregar
 
@@ -125,7 +125,7 @@ Isso executará a migration automaticamente na próxima vez que o Render fizer d
 
 ```bash
 # Teste o endpoint de estoque
-curl https://lkoperacaobackend.onrender.com/api/estoque-lojas/SEU_LOJA_ID
+curl https://backend-agarramais.onrender.com/api/estoque-lojas/SEU_LOJA_ID
 
 # Se retornar [] (array vazio) = sucesso!
 # Se retornar erro = tabela não existe ainda

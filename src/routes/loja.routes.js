@@ -8,8 +8,8 @@ import {
 } from "../controllers/lojaController.js";
 import {
   autenticar,
-  autorizarRole,
   registrarLog,
+  autorizarPermissao,
 } from "../middlewares/auth.js";
 import { cacheGet, clearHttpCacheOnSuccess } from "../middlewares/httpCache.js";
 
@@ -20,7 +20,7 @@ router.get("/:id", autenticar, obterLoja);
 router.post(
   "/",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("lojas.gerenciar", "ADMIN"),
   clearHttpCacheOnSuccess(),
   registrarLog("CRIAR_LOJA", "Loja"),
   criarLoja
@@ -28,7 +28,7 @@ router.post(
 router.put(
   "/:id",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("lojas.gerenciar", "ADMIN"),
   clearHttpCacheOnSuccess(),
   registrarLog("EDITAR_LOJA", "Loja"),
   atualizarLoja
@@ -36,7 +36,7 @@ router.put(
 router.delete(
   "/:id",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("lojas.gerenciar", "ADMIN"),
   clearHttpCacheOnSuccess(),
   registrarLog("DELETAR_LOJA", "Loja"),
   deletarLoja

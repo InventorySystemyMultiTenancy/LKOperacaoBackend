@@ -85,7 +85,7 @@ Sistema que controla a quantidade de produtos que cada funcionário leva diariam
 
 **IMPORTANTE:** Todos os endpoints de gestão de carrinhos (criar, listar, editar, alertas) são acessíveis por:
 - Usuários com role `ADMIN`
-- **OU** usuários com emails `eriky@lkoperacao.com` ou `gerson@lkoperacao.com` (independente do role)
+- **OU** usuários com emails `eriky@clubekids.com` ou `gerson@clubekids.com` (independente do role)
 
 O backend valida: `if (role === 'ADMIN' || email em lista autorizada)`
 
@@ -243,7 +243,7 @@ Response 200 (COM DISCREPÂNCIA):
 POST /api/carrinho-usuarios/devolucao-admin
 Authorization: Bearer {token}
 
-PERMISSÃO: Admin OU usuários com emails "eriky@lkoperacao.com" e "gerson@lkoperacao.com"
+PERMISSÃO: Admin OU usuários com emails "eriky@clubekids.com" e "gerson@clubekids.com"
 
 Body:
 {
@@ -263,7 +263,7 @@ Response 200 (SUCESSO):
     "quantidadeEsperada": 45,
     "discrepancia": -5,
     "alertaAtivo": true,
-    "observacao": "(Registrado por eriky@lkoperacao.com) Funcionário saiu mais cedo",
+    "observacao": "(Registrado por eriky@clubekids.com) Funcionário saiu mais cedo",
     "dataDevolucao": "2026-03-11T18:30:00Z",
     "carrinho": {
       "data": "2026-03-11",

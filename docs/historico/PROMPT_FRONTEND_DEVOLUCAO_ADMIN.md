@@ -2,7 +2,7 @@
 
 ## 🎯 Objetivo
 
-Permitir que usuários autorizados (emails específicos: `eriky@lkoperacao.com` e `gerson@lkoperacao.com`) tenham **ACESSO COMPLETO À ABA DE CARRINHOS**, incluindo:
+Permitir que usuários autorizados (emails específicos: `eriky@clubekids.com` e `gerson@clubekids.com`) tenham **ACESSO COMPLETO À ABA DE CARRINHOS**, incluindo:
 
 1. ✅ Ver lista de carrinhos ativos
 2. ✅ Criar carrinhos para funcionários
@@ -18,8 +18,8 @@ Permitir que usuários autorizados (emails específicos: `eriky@lkoperacao.com` 
 ## 🔐 Permissões
 
 **IMPORTANTE:** Apenas usuários com os seguintes emails têm acesso completo à gestão de carrinhos:
-- `eriky@lkoperacao.com`
-- `gerson@lkoperacao.com`
+- `eriky@clubekids.com`
+- `gerson@clubekids.com`
 
 **NÃO é necessário ser admin!** O backend valida: `if (role === 'ADMIN' || email em lista autorizada)`
 
@@ -34,7 +34,7 @@ Permitir que usuários autorizados (emails específicos: `eriky@lkoperacao.com` 
 ```javascript
 const userEmail = localStorage.getItem('userEmail');
 const isAdmin = localStorage.getItem('userRole') === 'ADMIN';
-const emailsAutorizados = ['eriky@lkoperacao.com', 'gerson@lkoperacao.com'];
+const emailsAutorizados = ['eriky@clubekids.com', 'gerson@clubekids.com'];
 const temAcessoCarrinhos = isAdmin || emailsAutorizados.includes(userEmail);
 
 // Usar temAcessoCarrinhos para controlar visibilidade
@@ -63,7 +63,7 @@ Mostrar aba "Carrinhos" para admins OU emails autorizados:
 const userEmail = localStorage.getItem('userEmail');
 const isAdmin = localStorage.getItem('userRole') === 'ADMIN';
 const temAcessoCarrinhos = isAdmin || 
-  ['eriky@lkoperacao.com', 'gerson@lkoperacao.com'].includes(userEmail);
+  ['eriky@clubekids.com', 'gerson@clubekids.com'].includes(userEmail);
 
 {temAcessoCarrinhos && (
   <MenuItem to="/carrinhos">⚡ Carrinhos</MenuItem>
@@ -76,7 +76,7 @@ Permitir acesso completo aos usuários autorizados:
 ```javascript
 // No componente da página de carrinhos
 const temAcessoCarrinhos = isAdmin || 
-  ['eriky@lkoperacao.com', 'gerson@lkoperacao.com'].includes(userEmail);
+  ['eriky@clubekids.com', 'gerson@clubekids.com'].includes(userEmail);
 
 if (!temAcessoCarrinhos) {
   return <Navigate to="/dashboard" />;
@@ -110,7 +110,7 @@ As seções abaixo detalham funcionalidades específicas. Consulte [PROMPT_FRONT
 
 **Localização:** Página de gestão de carrinhos - Lista de Carrinhos Ativos
 
-**Permissão:** Mostrar para admins OU usuários com email `eriky@lkoperacao.com` ou `gerson@lkoperacao.com`
+**Permissão:** Mostrar para admins OU usuários com email `eriky@clubekids.com` ou `gerson@clubekids.com`
 
 **Antes:**
 ```
@@ -174,7 +174,7 @@ const response = await fetch('/api/carrinho-usuarios/devolucao-admin', {
     "quantidadeEsperada": 45,
     "discrepancia": 0,
     "alertaAtivo": false,
-    "observacao": "(Registrado por admin eriky@lkoperacao.com) Funcionário saiu mais cedo",
+    "observacao": "(Registrado por admin eriky@clubekids.com) Funcionário saiu mais cedo",
     "dataDevolucao": "2026-03-11T18:30:00Z",
     "carrinho": {
       "data": "2026-03-11",
@@ -199,7 +199,7 @@ const response = await fetch('/api/carrinho-usuarios/devolucao-admin', {
     "quantidadeEsperada": 45,
     "discrepancia": -5,
     "alertaAtivo": true,
-    "observacao": "(Registrado por admin eriky@lkoperacao.com) Funcionário saiu mais cedo",
+    "observacao": "(Registrado por admin eriky@clubekids.com) Funcionário saiu mais cedo",
     ...
   }
 }
@@ -209,7 +209,7 @@ const response = await fetch('/api/carrinho-usuarios/devolucao-admin', {
 ```json
 {
   "ok": false,
-  "erro": "Você não tem permissão para registrar devolução por funcionários. Apenas eriky@lkoperacao.com e gerson@lkoperacao.com podem fazer isso."
+  "erro": "Você não tem permissão para registrar devolução por funcionários. Apenas eriky@clubekids.com e gerson@clubekids.com podem fazer isso."
 }
 ```
 
@@ -428,7 +428,7 @@ export function CarrinhosAtivosList({ carrinhos, onRefresh }) {
   // Verificar se usuário tem permissão (admin OU email autorizado)
   const userEmail = localStorage.getItem('userEmail');
   const isAdmin = localStorage.getItem('userRole') === 'ADMIN';
-  const temAcessoCarrinhos = isAdmin || ['eriky@lkoperacao.com', 'gerson@lkoperacao.com'].includes(userEmail);
+  const temAcessoCarrinhos = isAdmin || ['eriky@clubekids.com', 'gerson@clubekids.com'].includes(userEmail);
 
   return (
     <div className="carrinhos-ativos-list">
@@ -717,8 +717,8 @@ export function CarrinhosAtivosList({ carrinhos, onRefresh }) {
 
 ### 1. **Permissão no Backend**
 O backend valida se o usuário tem um dos emails autorizados:
-- `eriky@lkoperacao.com`
-- `gerson@lkoperacao.com`
+- `eriky@clubekids.com`
+- `gerson@clubekids.com`
 
 **NÃO é necessário ser admin!** A validação é feita apenas no email.
 
@@ -726,7 +726,7 @@ Se o usuário não tiver um desses emails, receberá erro **403 Forbidden**:
 ```json
 {
   "ok": false,
-  "erro": "Você não tem permissão para registrar devolução por funcionários. Apenas eriky@lkoperacao.com e gerson@lkoperacao.com podem fazer isso."
+  "erro": "Você não tem permissão para registrar devolução por funcionários. Apenas eriky@clubekids.com e gerson@clubekids.com podem fazer isso."
 }
 ```
 
@@ -734,8 +734,8 @@ Se o usuário não tiver um desses emails, receberá erro **403 Forbidden**:
 
 ### 1. **Permissão no Backend**
 O backend valida se o usuário é admin **OU** tem um dos emails autorizados:
-- `eriky@lkoperacao.com`
-- `gerson@lkoperacao.com`
+- `eriky@clubekids.com`
+- `gerson@clubekids.com`
 
 **Lógica:** `if (role === 'ADMIN' || email em lista)`
 
@@ -755,13 +755,13 @@ Usuários autorizados têm acesso a **TODOS** os endpoints de gestão de carrinh
 - `PUT /api/carrinho-usuarios/alertas/:id/desativar` - Desativar alerta
 - `POST /api/carrinho-usuarios/devolucao-admin` - Devolver por funcionário
 O backend adiciona automaticamente um prefixo à observação:
-- Com observação: `(Registrado por eriky@lkoperacao.com) Funcionário saiu mais cedo`
-- Sem observação: `Registrado por eriky@lkoperacao.com`
+- Com observação: `(Registrado por eriky@clubekids.com) Funcionário saiu mais cedo`
+- Sem observação: `Registrado por eriky@clubekids.com`
 
 ### 3. **Observação Automática**
 O backend adiciona automaticamente um prefixo à observação:
-- Com observação: `(Registrado por eriky@lkoperacao.com) Funcionário saiu mais cedo`
-- Sem observação: `Registrado por eriky@lkoperacao.com`
+- Com observação: `(Registrado por eriky@clubekids.com) Funcionário saiu mais cedo`
+- Sem observação: `Registrado por eriky@clubekids.com`
 
 ### 4. **Devolução em Nome do Funcionário**
 A devolução fica registrada com o `usuarioId` do funcionário (não do usuário autorizado), para manter histórico correto. O usuário autorizado é identificado apenas na observação.

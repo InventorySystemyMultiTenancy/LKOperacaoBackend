@@ -1,4 +1,4 @@
-// lkoperacaobackend/src/utils/resetSemanalRoteiros.js
+// backendclubkids/src/utils/resetSemanalRoteiros.js
 import * as db from "../models/index.js";
 
 /**

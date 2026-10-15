@@ -29,7 +29,8 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:5174",
-  "https://lkoperacao.selfmachine.com.br",
+  "https://agarramaisop.selfmachine.com.br",
+  "https://clubekids.selfmachine.com.br",
   process.env.FRONTEND_URL,
 ].filter(Boolean); // Remove undefined se FRONTEND_URL não estiver definida
 
@@ -48,7 +49,8 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    // X-Link-Token: token dos vouchers (rotas públicas /api/credito-remoto/publico)
+    allowedHeaders: ["Content-Type", "Authorization", "X-Link-Token"],
   }),
 );
 app.use(morgan("dev"));
@@ -61,7 +63,7 @@ app.use("/public", express.static(path.join(__dirname, "..", "public")));
 // Root route
 app.get("/", (req, res) => {
   res.json({
-    message: "LK Operação API",
+    message: "Agarra Mais API",
     version: "1.0.0",
     status: "online",
     endpoints: {
@@ -86,7 +88,7 @@ app.get("/health", (req, res) => {
 app.get("/debug/admin", async (req, res) => {
   const { Usuario } = await import("./models/index.js");
   const admin = await Usuario.findOne({
-    where: { email: process.env.ADMIN_EMAIL || "admin@lkoperacao.com" },
+    where: { email: process.env.ADMIN_EMAIL || "admin@agarramais.com" },
   });
   res.json({
     adminExists: !!admin,
@@ -121,9 +123,45 @@ const startServer = async () => {
     await sequelize.sync();
     console.log("✅ Database sincronizado!");
 
+    // sync() não adiciona colunas em tabelas existentes
+    await sequelize.query(
+      `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS permissoes JSONB DEFAULT NULL;`
+    );
+
+    // Barreira final dos vouchers: o próprio Postgres recusa qualquer
+    // gravação em que o valor usado passe do limite.
+    await sequelize.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'check_credito_remoto_limite'
+        ) THEN
+          ALTER TABLE credito_remoto_links
+            ADD CONSTRAINT check_credito_remoto_limite
+            CHECK (usado_centavos >= 0 AND usado_centavos <= limite_centavos AND limite_centavos > 0);
+        END IF;
+      END $$;
+    `);
+
+    // sync() não adiciona colunas em tabelas existentes
+    await sequelize.query(
+      "ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS horario_funcionamento JSONB",
+    );
+    // Máquinas já cadastradas entram como CAPITAL
+    await sequelize.query(
+      "ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS regiao VARCHAR(10) NOT NULL DEFAULT 'CAPITAL'",
+    );
+    // Leitores sem vínculo: a tabela também guarda a região, e o horário pode ficar vazio
+    await sequelize.query(
+      "ALTER TABLE machine_pay_horarios ADD COLUMN IF NOT EXISTS regiao VARCHAR(10)",
+    );
+    await sequelize.query(
+      "ALTER TABLE machine_pay_horarios ALTER COLUMN horario_funcionamento DROP NOT NULL",
+    );
+
     // Criar admin padrão se não existir
     const { Usuario } = await import("./models/index.js");
-    const adminEmail = process.env.ADMIN_EMAIL || "admin@lkoperacao.com";
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@agarramais.com";
     const adminExistente = await Usuario.findOne({
       where: { email: adminEmail },
     });

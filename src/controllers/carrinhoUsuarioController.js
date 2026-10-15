@@ -5,6 +5,181 @@ import { Op } from "sequelize";
 const hojeBrasil = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 
+// Diferença mínima entre updatedAt e createdAt para considerar que o admin editou o carrinho
+const TOLERANCIA_EDICAO_MS = 5000;
+
+// Momento a partir do qual as movimentações contam como uso do carrinho.
+// Se o admin editou as quantidades, conta a partir da edição (novo ponto de partida).
+// Senão, conta a partir da criação do carrinho: o funcionário acabou de pegá-lo,
+// então o que abasteceu antes disso não sai deste carrinho.
+// Carrinhos antigos tinham o saldo descontado na própria movimentação, o que também
+// mexia no updatedAt; nesses (saldo diferente do inicial) não há edição a considerar.
+const referenciaUso = (carrinho) => {
+  const editado =
+    carrinho.quantidadeAtual === carrinho.quantidadeInicial &&
+    new Date(carrinho.updatedAt) - new Date(carrinho.createdAt) > TOLERANCIA_EDICAO_MS;
+  return editado ? carrinho.updatedAt : carrinho.createdAt;
+};
+
+/**
+ * Soma, por produto, o quanto o funcionário abasteceu nas movimentações feitas
+ * desde a referência de uso do carrinho (até a criação do carrinho seguinte dele).
+ * Retorna Map<produtoId, quantidadeUsada>.
+ */
+const calcularUsoCarrinho = async (carrinho, transaction) => {
+  const produtoIds = (carrinho.itens || []).map((i) => i.produtoId);
+  if (produtoIds.length === 0) return new Map();
+
+  const proximoCarrinho = await db.CarrinhoUsuario.findOne({
+    where: {
+      usuarioId: carrinho.usuarioId,
+      data: { [Op.gt]: carrinho.data },
+    },
+    order: [["data", "ASC"], ["createdAt", "ASC"]],
+    attributes: ["createdAt"],
+    transaction,
+  });
+
+  const periodo = { [Op.gte]: referenciaUso(carrinho) };
+  if (proximoCarrinho) periodo[Op.lt] = proximoCarrinho.createdAt;
+
+  const linhas = await db.MovimentacaoProduto.findAll({
+    attributes: [
+      "produtoId",
+      [db.sequelize.fn("SUM", db.sequelize.col("MovimentacaoProduto.quantidadeAbastecida")), "usado"],
+    ],
+    where: { produtoId: { [Op.in]: produtoIds } },
+    include: [
+      {
+        model: db.Movimentacao,
+        attributes: [],
+        required: true,
+        where: { usuarioId: carrinho.usuarioId, createdAt: periodo },
+      },
+    ],
+    group: ["MovimentacaoProduto.produtoId"],
+    raw: true,
+    transaction,
+  });
+
+  return new Map(linhas.map((l) => [l.produtoId, parseInt(l.usado, 10) || 0]));
+};
+
+/**
+ * Serializa o carrinho com o uso calculado por produto:
+ * quantidadeUsada, quantidadeEsperada (quanto deve devolver) e quantidadeExcedente
+ * (usado além do que levou). quantidadeAtual passa a refletir o saldo calculado.
+ */
+const comUsoCalculado = async (carrinho) => {
+  const json = carrinho.toJSON();
+  if (!carrinho.ativo || !json.itens) return json;
+
+  const uso = await calcularUsoCarrinho(carrinho);
+  let totalUsado = 0;
+  let totalEsperado = 0;
+
+  json.itens = json.itens.map((item) => {
+    const quantidadeUsada = uso.get(item.produtoId) || 0;
+    const quantidadeEsperada = Math.max(0, item.quantidadeInicial - quantidadeUsada);
+    totalUsado += quantidadeUsada;
+    totalEsperado += quantidadeEsperada;
+    return {
+      ...item,
+      quantidadeUsada,
+      quantidadeEsperada,
+      quantidadeExcedente: Math.max(0, quantidadeUsada - item.quantidadeInicial),
+      quantidadeAtual: quantidadeEsperada,
+    };
+  });
+
+  return {
+    ...json,
+    quantidadeUsada: totalUsado,
+    quantidadeEsperada: totalEsperado,
+    quantidadeAtual: totalEsperado,
+    usoDesde: referenciaUso(carrinho),
+  };
+};
+
+/**
+ * Grava a devolução comparando o devolvido com o esperado calculado pelas
+ * movimentações. Só há discrepância quando devolveu MENOS que o esperado;
+ * devolver a mais não gera alerta.
+ */
+const gravarDevolucao = async ({ carrinho, itens, usuarioId, observacao }) =>
+  db.sequelize.transaction(async (t) => {
+    const uso = await calcularUsoCarrinho(carrinho, t);
+
+    let quantidadeTotalDevolvida = 0;
+    let quantidadeTotalEsperada = 0;
+    let discrepanciaTotal = 0;
+
+    const devolucao = await db.DevolucaoCarrinho.create({
+      carrinhoId: carrinho.id,
+      usuarioId,
+      quantidadeDevolvida: 0, // Será atualizado depois
+      quantidadeEsperada: 0, // Será atualizado depois
+      discrepancia: 0, // Será atualizado depois
+      alertaAtivo: false, // Será atualizado depois
+      observacao,
+      dataDevolucao: new Date(),
+    }, { transaction: t });
+
+    const itensDevolucao = [];
+    for (const itemDevolucao of itens) {
+      const { produtoId } = itemDevolucao;
+      const quantidadeDevolvida = parseInt(itemDevolucao.quantidadeDevolvida, 10);
+
+      if (!produtoId || Number.isNaN(quantidadeDevolvida)) {
+        throw new Error("Cada item deve ter produtoId e quantidadeDevolvida");
+      }
+
+      const carrinhoItem = carrinho.itens.find((ci) => ci.produtoId === produtoId);
+      if (!carrinhoItem) {
+        throw new Error(`Produto ${produtoId} não encontrado no carrinho`);
+      }
+
+      const quantidadeEsperada = Math.max(
+        0,
+        carrinhoItem.quantidadeInicial - (uso.get(produtoId) || 0)
+      );
+      const discrepancia = Math.min(0, quantidadeDevolvida - quantidadeEsperada);
+
+      const devolucaoItem = await db.DevolucaoCarrinhoItem.create({
+        devolucaoId: devolucao.id,
+        produtoId,
+        quantidadeDevolvida,
+        quantidadeEsperada,
+        discrepancia,
+      }, { transaction: t });
+
+      // Congela o saldo calculado no item, para o carrinho encerrado manter o histórico
+      await carrinhoItem.update({ quantidadeAtual: quantidadeEsperada }, { transaction: t });
+
+      quantidadeTotalDevolvida += quantidadeDevolvida;
+      quantidadeTotalEsperada += quantidadeEsperada;
+      discrepanciaTotal += discrepancia;
+      itensDevolucao.push(devolucaoItem);
+    }
+
+    const temDiscrepancia = discrepanciaTotal < 0;
+
+    await devolucao.update({
+      quantidadeDevolvida: quantidadeTotalDevolvida,
+      quantidadeEsperada: quantidadeTotalEsperada,
+      discrepancia: discrepanciaTotal,
+      alertaAtivo: temDiscrepancia,
+    }, { transaction: t });
+
+    // Desativar o carrinho
+    await carrinho.update(
+      { ativo: false, quantidadeAtual: quantidadeTotalEsperada },
+      { transaction: t }
+    );
+
+    return { devolucao, itensDevolucao, temDiscrepancia };
+  });
+
 /**
  * Controller para gerenciar carrinhos de produtos por usuário
  * 
@@ -169,7 +344,7 @@ export const listarCarrinhos = async (req, res) => {
       order: [["data", "DESC"], ["createdAt", "DESC"]],
     });
 
-    res.json({ ok: true, carrinhos });
+    res.json({ ok: true, carrinhos: await Promise.all(carrinhos.map(comUsoCalculado)) });
   } catch (error) {
     console.error("Erro ao listar carrinhos:", error);
     res.status(500).json({ ok: false, erro: error.message });
@@ -240,7 +415,7 @@ export const buscarCarrinhoAtual = async (req, res) => {
       });
     }
 
-    res.json({ ok: true, carrinho });
+    res.json({ ok: true, carrinho: await comUsoCalculado(carrinho) });
   } catch (error) {
     console.error("Erro ao buscar carrinho atual:", error);
     res.status(500).json({ ok: false, erro: error.message });
@@ -252,7 +427,10 @@ export const buscarCarrinhoAtual = async (req, res) => {
 // ============================================
 export const atualizarCarrinho = async (req, res) => {
   const { id } = req.params;
-  // itens = [{ produtoId: "uuid", quantidadeInicial?: 10, quantidadeAtual?: 5 }, ...]
+  // itens = [{ produtoId: "uuid", quantidadeInicial: 10 }, ...]
+  // Produto que ainda não está no carrinho é adicionado.
+  // quantidadeInicial = quanto o funcionário tem deste produto a partir de agora;
+  // o uso volta a ser contado das movimentações feitas depois desta atualização
   const { itens, ativo } = req.body;
 
   try {
@@ -271,20 +449,39 @@ export const atualizarCarrinho = async (req, res) => {
     await db.sequelize.transaction(async (t) => {
       if (Array.isArray(itens) && itens.length > 0) {
         for (const item of itens) {
-          const { produtoId, quantidadeInicial, quantidadeAtual } = item;
+          const { produtoId } = item;
+          const quantidadeInicial = parseInt(item.quantidadeInicial, 10);
+
+          if (Number.isNaN(quantidadeInicial) || quantidadeInicial < 0) {
+            throw new Error("Cada item deve ter quantidadeInicial válida");
+          }
 
           const carrinhoItem = carrinho.itens.find((ci) => ci.produtoId === produtoId);
           if (!carrinhoItem) {
-            throw new Error(`Produto ${produtoId} não encontrado neste carrinho`);
+            // Produto novo adicionado na edição
+            const produto = produtoId && (await db.Produto.findByPk(produtoId, { transaction: t }));
+            if (!produto) {
+              throw new Error(`Produto ${produtoId} não encontrado`);
+            }
+            const novoItem = await db.CarrinhoItem.create(
+              {
+                carrinhoId: carrinho.id,
+                produtoId,
+                quantidadeInicial,
+                quantidadeAtual: quantidadeInicial,
+              },
+              { transaction: t }
+            );
+            // Evita criar de novo se o mesmo produto vier repetido na requisição
+            carrinho.itens.push(novoItem);
+            continue;
           }
 
-          const itemUpdates = {};
-          if (quantidadeInicial !== undefined) itemUpdates.quantidadeInicial = quantidadeInicial;
-          if (quantidadeAtual !== undefined) itemUpdates.quantidadeAtual = quantidadeAtual;
-
-          if (Object.keys(itemUpdates).length > 0) {
-            await carrinhoItem.update(itemUpdates, { transaction: t });
-          }
+          // Novo ponto de partida: saldo = quantidade informada
+          await carrinhoItem.update(
+            { quantidadeInicial, quantidadeAtual: quantidadeInicial },
+            { transaction: t }
+          );
         }
 
         // Cabeçalho é sempre derivado da soma dos itens (fonte da verdade),
@@ -298,14 +495,14 @@ export const atualizarCarrinho = async (req, res) => {
           transaction: t,
         });
 
-        await carrinho.update(
-          {
-            quantidadeInicial: totalInicial || 0,
-            quantidadeAtual: totalAtual || 0,
-            ...(ativo !== undefined ? { ativo } : {}),
-          },
-          { transaction: t }
-        );
+        carrinho.set({
+          quantidadeInicial: totalInicial || 0,
+          quantidadeAtual: totalAtual || 0,
+          ...(ativo !== undefined ? { ativo } : {}),
+        });
+        // updatedAt é a referência do uso: atualiza mesmo se os números não mudaram
+        carrinho.changed("updatedAt", true);
+        await carrinho.save({ transaction: t });
       } else if (ativo !== undefined) {
         await carrinho.update({ ativo }, { transaction: t });
       }
@@ -328,7 +525,7 @@ export const atualizarCarrinho = async (req, res) => {
 
     res.json({
       ok: true,
-      carrinho: carrinhoAtualizado,
+      carrinho: await comUsoCalculado(carrinhoAtualizado),
       mensagem: "Carrinho atualizado com sucesso",
     });
   } catch (error) {
@@ -414,73 +611,11 @@ export const registrarDevolucao = async (req, res) => {
       });
     }
 
-    // Usar transação para garantir consistência
-    const result = await db.sequelize.transaction(async (t) => {
-      // Calcular totais e criar devolução principal
-      let quantidadeTotalDevolvida = 0;
-      let quantidadeTotalEsperada = 0;
-      let temDiscrepancia = false;
-
-      // Criar devolução principal
-      const devolucao = await db.DevolucaoCarrinho.create({
-        carrinhoId,
-        usuarioId,
-        quantidadeDevolvida: 0, // Será atualizado depois
-        quantidadeEsperada: 0, // Será atualizado depois
-        discrepancia: 0, // Será atualizado depois
-        alertaAtivo: false, // Será atualizado depois
-        observacao: observacao || null,
-        dataDevolucao: new Date(),
-      }, { transaction: t });
-
-      // Criar itens da devolução
-      const itensDevolucao = [];
-      for (const itemDevolucao of itens) {
-        const { produtoId, quantidadeDevolvida } = itemDevolucao;
-
-        if (!produtoId || quantidadeDevolvida === undefined) {
-          throw new Error("Cada item deve ter produtoId e quantidadeDevolvida");
-        }
-
-        // Buscar item do carrinho correspondente
-        const carrinhoItem = carrinho.itens.find(ci => ci.produtoId === produtoId);
-        
-        if (!carrinhoItem) {
-          throw new Error(`Produto ${produtoId} não encontrado no carrinho`);
-        }
-
-        const quantidadeEsperada = carrinhoItem.quantidadeAtual;
-        const discrepancia = quantidadeDevolvida - quantidadeEsperada;
-
-        if (discrepancia !== 0) temDiscrepancia = true;
-
-        // Criar item da devolução
-        const devolucaoItem = await db.DevolucaoCarrinhoItem.create({
-          devolucaoId: devolucao.id,
-          produtoId,
-          quantidadeDevolvida,
-          quantidadeEsperada,
-          discrepancia,
-        }, { transaction: t });
-
-        quantidadeTotalDevolvida += quantidadeDevolvida;
-        quantidadeTotalEsperada += quantidadeEsperada;
-
-        itensDevolucao.push(devolucaoItem);
-      }
-
-      // Atualizar devolução principal com totais
-      await devolucao.update({
-        quantidadeDevolvida: quantidadeTotalDevolvida,
-        quantidadeEsperada: quantidadeTotalEsperada,
-        discrepancia: quantidadeTotalDevolvida - quantidadeTotalEsperada,
-        alertaAtivo: temDiscrepancia,
-      }, { transaction: t });
-
-      // Desativar o carrinho
-      await carrinho.update({ ativo: false }, { transaction: t });
-
-      return { devolucao, itensDevolucao, temDiscrepancia };
+    const result = await gravarDevolucao({
+      carrinho,
+      itens,
+      usuarioId,
+      observacao: observacao || null,
     });
 
     // Buscar devolução completa com relações
@@ -524,7 +659,7 @@ export const registrarDevolucao = async (req, res) => {
       mensagem:
         discrepancia === 0
           ? "Devolução registrada com sucesso! Quantidades conferem."
-          : `Devolução registrada. ATENÇÃO: Discrepância de ${discrepancia} produtos (${discrepancia > 0 ? "sobra" : "falta"}).`,
+          : `Devolução registrada. ATENÇÃO: faltaram ${Math.abs(discrepancia)} produtos.`,
     });
   } catch (error) {
     console.error("Erro ao registrar devolução:", error);
@@ -627,74 +762,13 @@ export const registrarDevolucaoPorAdmin = async (req, res) => {
       });
     }
 
-    // Usar transação para garantir consistência
-    const result = await db.sequelize.transaction(async (t) => {
-      let quantidadeTotalDevolvida = 0;
-      let quantidadeTotalEsperada = 0;
-      let temDiscrepancia = false;
-
-      // Criar devolução principal
-      const devolucao = await db.DevolucaoCarrinho.create({
-        carrinhoId: carrinho.id,
-        usuarioId: usuarioIdFuncionario, // Devolução em nome do funcionário
-        quantidadeDevolvida: 0, // Será atualizado depois
-        quantidadeEsperada: 0, // Será atualizado depois
-        discrepancia: 0, // Será atualizado depois
-        alertaAtivo: false, // Será atualizado depois
-        observacao: observacao 
-          ? `(Registrado por ${usuarioAutorizadoEmail}) ${observacao}` 
-          : `Registrado por ${usuarioAutorizadoEmail}`,
-        dataDevolucao: new Date(),
-      }, { transaction: t });
-
-      // Criar itens da devolução
-      const itensDevolucao = [];
-      for (const itemDevolucao of itens) {
-        const { produtoId, quantidadeDevolvida } = itemDevolucao;
-
-        if (!produtoId || quantidadeDevolvida === undefined) {
-          throw new Error("Cada item deve ter produtoId e quantidadeDevolvida");
-        }
-
-        // Buscar item do carrinho correspondente
-        const carrinhoItem = carrinho.itens.find(ci => ci.produtoId === produtoId);
-        
-        if (!carrinhoItem) {
-          throw new Error(`Produto ${produtoId} não encontrado no carrinho`);
-        }
-
-        const quantidadeEsperada = carrinhoItem.quantidadeAtual;
-        const discrepancia = quantidadeDevolvida - quantidadeEsperada;
-
-        if (discrepancia !== 0) temDiscrepancia = true;
-
-        // Criar item da devolução
-        const devolucaoItem = await db.DevolucaoCarrinhoItem.create({
-          devolucaoId: devolucao.id,
-          produtoId,
-          quantidadeDevolvida,
-          quantidadeEsperada,
-          discrepancia,
-        }, { transaction: t });
-
-        quantidadeTotalDevolvida += quantidadeDevolvida;
-        quantidadeTotalEsperada += quantidadeEsperada;
-
-        itensDevolucao.push(devolucaoItem);
-      }
-
-      // Atualizar devolução principal com totais
-      await devolucao.update({
-        quantidadeDevolvida: quantidadeTotalDevolvida,
-        quantidadeEsperada: quantidadeTotalEsperada,
-        discrepancia: quantidadeTotalDevolvida - quantidadeTotalEsperada,
-        alertaAtivo: temDiscrepancia,
-      }, { transaction: t });
-
-      // Desativar o carrinho
-      await carrinho.update({ ativo: false }, { transaction: t });
-
-      return { devolucao, itensDevolucao, temDiscrepancia };
+    const result = await gravarDevolucao({
+      carrinho,
+      itens,
+      usuarioId: usuarioIdFuncionario, // Devolução em nome do funcionário
+      observacao: observacao
+        ? `(Registrado por ${usuarioAutorizadoEmail}) ${observacao}`
+        : `Registrado por ${usuarioAutorizadoEmail}`,
     });
 
     // Buscar devolução completa com relações
@@ -738,7 +812,7 @@ export const registrarDevolucaoPorAdmin = async (req, res) => {
       mensagem:
         discrepancia === 0
           ? `Devolução registrada com sucesso para ${carrinho.usuario.nome}! Quantidades conferem.`
-          : `Devolução registrada para ${carrinho.usuario.nome}. ATENÇÃO: Discrepância de ${discrepancia} produtos (${discrepancia > 0 ? "sobra" : "falta"}).`,
+          : `Devolução registrada para ${carrinho.usuario.nome}. ATENÇÃO: faltaram ${Math.abs(discrepancia)} produtos.`,
     });
   } catch (error) {
     console.error("Erro ao registrar devolução por usuário autorizado:", error);
@@ -754,7 +828,7 @@ export const listarAlertasDiscrepancia = async (req, res) => {
 
   try {
     const where = {
-      discrepancia: { [Op.ne]: 0 }, // Apenas devoluções com discrepância
+      discrepancia: { [Op.lt]: 0 }, // Apenas devoluções com falta (sobra não é discrepância)
     };
 
     if (apenasAtivos === "true") {
@@ -943,21 +1017,30 @@ export const getStatusCarrinho = async (req, res) => {
   try {
     const hoje = hojeBrasil();
 
-    const carrinho = await db.CarrinhoUsuario.findOne({
+    const registro = await db.CarrinhoUsuario.findOne({
       where: {
         usuarioId,
         data: hoje,
         ativo: true,
       },
+      include: [
+        {
+          model: db.CarrinhoItem,
+          as: "itens",
+          include: [{ model: db.Produto, as: "produto", attributes: ["id", "nome"] }],
+        },
+      ],
     });
 
-    if (!carrinho) {
+    if (!registro) {
       return res.json({
         ok: true,
         temCarrinho: false,
         mensagem: "Nenhum carrinho ativo para hoje",
       });
     }
+
+    const carrinho = await comUsoCalculado(registro);
 
     const percentualUsado =
       carrinho.quantidadeInicial > 0
@@ -973,9 +1056,18 @@ export const getStatusCarrinho = async (req, res) => {
         id: carrinho.id,
         quantidadeInicial: carrinho.quantidadeInicial,
         quantidadeAtual: carrinho.quantidadeAtual,
-        quantidadeUsada: carrinho.quantidadeInicial - carrinho.quantidadeAtual,
+        quantidadeUsada: carrinho.quantidadeUsada,
         percentualUsado: Math.round(percentualUsado),
         data: carrinho.data,
+        observacao: carrinho.observacao,
+        // Por produto: a devolução do funcionário é registrada item a item
+        itens: (carrinho.itens || []).map((item) => ({
+          produtoId: item.produtoId,
+          produtoNome: item.produto?.nome || "Produto",
+          quantidadeInicial: item.quantidadeInicial,
+          quantidadeUsada: item.quantidadeUsada,
+          quantidadeEsperada: item.quantidadeEsperada,
+        })),
       },
     });
   } catch (error) {

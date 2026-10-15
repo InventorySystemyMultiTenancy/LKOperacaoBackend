@@ -9,8 +9,8 @@ import {
 } from "../controllers/produtoController.js";
 import {
   autenticar,
-  autorizarRole,
   registrarLog,
+  autorizarPermissao,
 } from "../middlewares/auth.js";
 import { cacheGet, clearHttpCacheOnSuccess } from "../middlewares/httpCache.js";
 
@@ -22,7 +22,7 @@ router.get("/:id", autenticar, obterProduto);
 router.post(
   "/",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("produtos.gerenciar", "ADMIN"),
   clearHttpCacheOnSuccess(),
   registrarLog("CRIAR_PRODUTO", "Produto"),
   criarProduto
@@ -30,7 +30,7 @@ router.post(
 router.put(
   "/:id",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("produtos.gerenciar", "ADMIN"),
   clearHttpCacheOnSuccess(),
   registrarLog("EDITAR_PRODUTO", "Produto"),
   atualizarProduto
@@ -38,7 +38,7 @@ router.put(
 router.delete(
   "/:id",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("produtos.gerenciar", "ADMIN"),
   clearHttpCacheOnSuccess(),
   registrarLog("DELETAR_PRODUTO", "Produto"),
   deletarProduto

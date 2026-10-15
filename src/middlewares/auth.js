@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { Usuario } from "../models/index.js";
 import LogAtividade from "../models/LogAtividade.js";
+import { temPermissao } from "../utils/permissoes.js";
 
 // US01 - Middleware de Autenticação
 export const autenticar = async (req, res, next) => {
@@ -63,6 +64,19 @@ export const autorizarRole = (...rolesPermitidas) => {
   };
 };
 
+// Autoriza por permissão personalizada (qualquer uma das `chaves`).
+// Usuário sem permissões personalizadas cai nas `rolesLegado`. ADMIN sempre passa.
+export const autorizarPermissao = (chaves, ...rolesLegado) => {
+  return (req, res, next) => {
+    if (!temPermissao(req.usuario, chaves, rolesLegado)) {
+      return res.status(403).json({
+        error: "Acesso negado. Você não tem permissão para esta ação.",
+      });
+    }
+    next();
+  };
+};
+
 // US02 - Middleware de Verificação de Permissão em Loja
 export const verificarPermissaoLoja = (acao = "visualizar") => {
   return async (req, res, next) => {
@@ -111,7 +125,7 @@ export const verificarAdmin = autorizarRole("ADMIN");
 // Middleware para autorizar ADMIN ou emails específicos autorizados
 // Usado para dar permissões de admin a usuários específicos (eriky e gerson)
 export const autorizarAdminOuEmailAutorizado = (req, res, next) => {
-  const emailsAutorizados = ["eriky@lkoperacao.com", "gerson@lkoperacao.com"];
+  const emailsAutorizados = ["eriky@clubekids.com", "gerson@clubekids.com"];
   
   // Permite se for ADMIN ou se tiver email autorizado
   if (req.usuario.role === "ADMIN" || emailsAutorizados.includes(req.usuario.email)) {
@@ -121,4 +135,21 @@ export const autorizarAdminOuEmailAutorizado = (req, res, next) => {
   return res.status(403).json({
     error: "Acesso negado. Você não tem permissão para esta ação.",
   });
+};
+
+// Devolução de carrinho em nome do funcionário: ADMIN, emails autorizados
+// ou usuário personalizado com "carrinhos.devolver"
+export const autorizarDevolucaoCarrinhos = (req, res, next) => {
+  if (Array.isArray(req.usuario.permissoes) && req.usuario.role !== "ADMIN") {
+    return autorizarPermissao("carrinhos.devolver")(req, res, next);
+  }
+  return autorizarAdminOuEmailAutorizado(req, res, next);
+};
+
+// Gestão de carrinhos: ADMIN, emails autorizados ou permissão "carrinhos"
+export const autorizarCarrinhos = (req, res, next) => {
+  if (Array.isArray(req.usuario.permissoes) && req.usuario.role !== "ADMIN") {
+    return autorizarPermissao("carrinhos")(req, res, next);
+  }
+  return autorizarAdminOuEmailAutorizado(req, res, next);
 };

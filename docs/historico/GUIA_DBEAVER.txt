@@ -10,7 +10,7 @@
 
 1. Abra o DBeaver
 2. Conecte-se ao seu banco de dados PostgreSQL
-3. Selecione o banco correto (lkoperacao_db)
+3. Selecione o banco correto (agarramais_db ou clubekids_db)
 
 ═══════════════════════════════════════════════════════════════════
 

@@ -5,6 +5,7 @@ import {
   Usuario,
   sequelize,
 } from "../models/index.js";
+import { temPermissao } from "../utils/permissoes.js";
 
 const JANELA_LOCALIZACAO_MINUTOS = 10;
 
@@ -203,7 +204,7 @@ export const obterStatusMinhaLocalizacaoRoteiro = async (req, res) => {
 
 export const listarLocalizacoesAtivas = async (req, res) => {
   try {
-    if (req.usuario.role !== "ADMIN") {
+    if (!temPermissao(req.usuario, ["roteiros.gerenciar", "movimentacoes.gerenciar"])) {
       return res.status(403).json({ error: "Acesso negado. Apenas ADMIN." });
     }
 

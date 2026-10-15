@@ -1,3 +1,6 @@
+import WebSocketClient from "ws";
+import { parsearVendasStats } from "./machinePayVendasParser.js";
+
 // Integração com o painel Machine Pay (Cyberpix) — não existe API pública documentada,
 // então a integração é feita via scraping autenticado do painel administrativo web
 // (cyberpix.com.br/pix-adesivo-clientes/): login por cookie de sessão + parsing de HTML.
@@ -290,6 +293,69 @@ export async function consultarFechamentoMachinePay({ posId, inicio, fim, chave 
   };
 }
 
+// ---- acao=stats: vendas (pagamentos) individuais de um posId no período ----
+// Mesma página do fechamento; aqui interessam as linhas de pagamento, que
+// trazem o idwebhook usado para pedir devolução.
+// inicio/fim: "YYYY-MM-DDTHH:MM" no horário de Brasília.
+
+export async function listarVendasMachinePay({ posId, inicio, fim, chave }) {
+  if (!posId) {
+    throw new MachinePayServiceError(400, "posId da Machine Pay é obrigatório");
+  }
+
+  const template = process.env.MACHINE_PAY_API_TEMPLATE;
+  if (!template) {
+    throw new MachinePayServiceError(500, "MACHINE_PAY_API_TEMPLATE não configurada");
+  }
+
+  const cookie = await login();
+  const url = construirUrlTemplate(template, {
+    posid: posId,
+    inicio64: base64(formatInicio(inicio)),
+    fim64: base64(formatFim(fim)),
+    chave: chave ?? process.env.MACHINE_PAY_CHAVE ?? "",
+  });
+
+  const resposta = await fetch(url, { headers: construirHeaders(cookie) });
+  if (!resposta.ok) {
+    throw new MachinePayServiceError(
+      502,
+      `Machine Pay retornou status ${resposta.status} ao consultar vendas`,
+    );
+  }
+
+  const htmlBruto = await resposta.text();
+  const inicioData = new Date(`${inicio}-03:00`);
+  const fimData = new Date(`${fim}-03:00`);
+
+  // O painel arredonda o período para o dia: filtra pelo horário exato pedido
+  return parsearVendasStats(htmlBruto)
+    .filter((venda) => {
+      if (!venda.data) return true;
+      const data = new Date(venda.data);
+      return data >= inicioData && data <= fimData;
+    })
+    .sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
+}
+
+// Pede a devolução e confere a resposta do painel (o HTTP 200 sozinho não garante nada)
+export async function devolverPagamentoConfirmado({ idwebhook }) {
+  const { respostaBruta } = await solicitarDevolucao({ idwebhook });
+  const texto = String(respostaBruta || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const mensagem = String(respostaBruta || "").match(/alert\("([^"]*)"\)/i)?.[1] || "";
+
+  if (!(texto.includes("solicitacao de devolucao") && texto.includes(String(idwebhook)))) {
+    throw new MachinePayServiceError(
+      502,
+      mensagem || "A Machine Pay não confirmou a devolução deste pagamento.",
+    );
+  }
+  return { sucesso: true, mensagem };
+}
+
 // ---- acao=fechamento&tipo=maq: fecha/zera o caixa da máquina no período ----
 
 export async function fecharFechamentoMachinePay({ posId, inicio, fim, valor, chave }) {
@@ -398,8 +464,30 @@ async function descobrirAdminUsr(posId) {
   }
 }
 
+// O extrato de um caixa (acao=stats&posid=) lista os pagamentos com
+// mostrar_mp('<idPagamento>', <usrDoCliente>) — dá o dono do posId sem saber
+// o usr de antemão. Só funciona se o caixa teve pagamento no período padrão.
+export async function descobrirUsrPorExtrato(posId) {
+  if (!posId) return null;
+  const cookie = await login();
+  const resposta = await fetch(
+    `${baseUrl()}maquinas.php?acao=stats&posid=${encodeURIComponent(posId)}`,
+    { headers: construirHeaders(cookie) },
+  );
+  if (!resposta.ok) return null;
+  const match = (await resposta.text()).match(/mostrar_mp\('[^']*'\s*,\s*(\d+)\s*\)/);
+  return match ? match[1] : null;
+}
+
 export async function descobrirUsrDePosId(posId) {
   if (!posId) return null;
+
+  try {
+    const usrId = await descobrirUsrPorExtrato(posId);
+    if (usrId) return usrId;
+  } catch (error) {
+    console.error("[MachinePay] Falha ao descobrir usr pelo extrato:", error.message);
+  }
 
   const candidatos = String(process.env.MACHINE_PAY_USR || "")
     .split(",")
@@ -481,4 +569,137 @@ export async function creditarSaldoManual({ posId, creditos }) {
   }
 
   return { respostaBruta: await resposta.text() };
+}
+
+// ---- Vouchers: envio de crédito igual ao do Agarra Mais ----
+// Além de gravar o crédito manual (salvar_credito_mqtt.php, com os mesmos
+// nomes de campo do painel: pos_id/valor/idwebhook), publica o crédito no
+// WebSocket do painel — é isso que faz a máquina receber na hora. Só é
+// considerado sucesso se as duas partes derem certo.
+
+const publicarCreditoWebSocket = async (posId, valorFinal, idwebhook) => {
+  const dominio = process.env.MACHINE_PAY_WS_DOMINIO || "cyberpix.com.br";
+  const token = process.env.MACHINE_PAY_WS_TOKEN || "1";
+  const usuario = process.env.MACHINE_PAY_WS_USUARIO || "1";
+  const wsUrl = `wss://${dominio}:65501/?token=${encodeURIComponent(token)}&scope=panel`;
+
+  const cookie = await login();
+
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocketClient(wsUrl, {
+      headers: {
+        Cookie: cookie,
+        Origin: baseUrl().replace(/\/$/, ""),
+      },
+      rejectUnauthorized: false,
+    });
+
+    let finalizado = false;
+    const finalizar = (ok, erro) => {
+      if (finalizado) return;
+      finalizado = true;
+      try {
+        ws.close();
+      } catch {}
+      ok ? resolve() : reject(erro);
+    };
+
+    const timeout = setTimeout(
+      () => finalizar(false, new Error("Timeout ao conectar WebSocket Machine Pay")),
+      10000,
+    );
+
+    ws.on("open", () => {
+      ws.send(JSON.stringify({ acao: "inscrever", canal: String(posId) }));
+      ws.send(
+        JSON.stringify({
+          acao: "publicar",
+          canal: String(posId),
+          mensagem: {
+            origem: usuario,
+            dados: JSON.stringify({ retorno: valorFinal, idwebhook }),
+          },
+        }),
+      );
+      clearTimeout(timeout);
+      setTimeout(() => finalizar(true), 1500);
+    });
+
+    ws.on("error", (erro) =>
+      finalizar(false, new Error(`WebSocket Machine Pay: ${erro.message}`)),
+    );
+  });
+};
+
+export async function enviarCreditosMqttMachinePay({ posId, creditos = 1 }) {
+  if (!posId) {
+    throw new MachinePayServiceError(400, "posId da Machine Pay é obrigatório");
+  }
+
+  const idwebhook = Math.floor(
+    Math.random() * 900000000000 + 100000000000,
+  ).toString();
+  const numero = Number(creditos || 0);
+  const valorFinal = (Number.isFinite(numero) ? numero : 0).toFixed(2);
+
+  let wsOk = false;
+  let wsErro = null;
+  try {
+    await publicarCreditoWebSocket(posId, valorFinal, idwebhook);
+    wsOk = true;
+  } catch (erro) {
+    wsErro = erro.message;
+  }
+
+  const url =
+    process.env.MACHINE_PAY_MQTT_TEMPLATE || `${baseUrl()}salvar_credito_mqtt.php`;
+  const method = (process.env.MACHINE_PAY_MQTT_METHOD || "POST").toUpperCase();
+
+  const cookie = await login();
+  const corpo = new URLSearchParams({
+    acao: process.env.MACHINE_PAY_MQTT_ACAO || "creditar",
+    pos_id: String(posId),
+    valor: valorFinal,
+    idwebhook,
+    origem: process.env.MACHINE_PAY_MQTT_ORIGEM || "1",
+    tpagto: process.env.MACHINE_PAY_MQTT_TPAGTO || "Manual",
+    banco: process.env.MACHINE_PAY_MQTT_BANCO || "Pagto manual criado",
+  });
+
+  const resposta = await fetch(url, {
+    method,
+    headers: construirHeaders(cookie, {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    }),
+    body: corpo.toString(),
+  });
+
+  if (!resposta.ok) {
+    throw new MachinePayServiceError(
+      502,
+      `Machine Pay retornou status ${resposta.status} ao creditar saldo`,
+    );
+  }
+
+  const corpoResposta = await resposta.text();
+  let json = null;
+  try {
+    json = JSON.parse(corpoResposta);
+  } catch {}
+  const texto = normalizarTexto(stripHtml(corpoResposta)).toLowerCase();
+  const dbOk =
+    json?.ok === true ||
+    json?.status === "ok" ||
+    json?.success === true ||
+    /gravado com sucesso|sucesso|enviado|credito|mqtt/.test(texto);
+
+  return {
+    httpStatus: resposta.status,
+    sucesso: wsOk && dbOk,
+    wsOk,
+    wsErro,
+    creditos: numero,
+    idwebhook: json?.idwebhook || idwebhook,
+    resposta: json || texto.slice(0, 500),
+  };
 }

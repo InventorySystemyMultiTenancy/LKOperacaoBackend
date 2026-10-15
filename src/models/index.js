@@ -33,6 +33,13 @@ import CarrinhoItem from "./CarrinhoItem.js";
 import DevolucaoCarrinhoItem from "./DevolucaoCarrinhoItem.js";
 import RoteiroLocalizacao from "./RoteiroLocalizacao.js";
 import AlertaResolvido from "./AlertaResolvido.js";
+import CreditoRemotoLink from "./CreditoRemotoLink.js";
+import CreditoRemotoEnvio from "./CreditoRemotoEnvio.js";
+import MachinePayStatus from "./MachinePayStatus.js";
+import MachinePayDiario from "./MachinePayDiario.js";
+import MachinePayEvento from "./MachinePayEvento.js";
+import MachinePayConta from "./MachinePayConta.js";
+import MachinePayHorario from "./MachinePayHorario.js";
 import { sequelize } from "../database/connection.js";
 
 // AlertaResolvido -> Usuario (quem marcou como resolvido)
@@ -253,6 +260,13 @@ DevolucaoCarrinho.hasMany(DevolucaoCarrinhoItem, { foreignKey: "devolucaoId", as
 DevolucaoCarrinhoItem.belongsTo(Produto, { foreignKey: "produtoId", as: "produto" });
 Produto.hasMany(DevolucaoCarrinhoItem, { foreignKey: "produtoId", as: "devolucaoItens" });
 
+// Voucher (link de crédito remoto) -> Envios (cada crédito mandado pelo link)
+CreditoRemotoLink.hasMany(CreditoRemotoEnvio, { foreignKey: "linkId", as: "envios" });
+CreditoRemotoEnvio.belongsTo(CreditoRemotoLink, { foreignKey: "linkId", as: "link" });
+CreditoRemotoEnvio.belongsTo(Maquina, { foreignKey: "maquinaId", as: "maquina" });
+CreditoRemotoLink.belongsTo(Maquina, { foreignKey: "maquinaId", as: "maquina" });
+CreditoRemotoLink.belongsTo(Usuario, { foreignKey: "criadoPorId", as: "criadoPor" });
+
 export {
   Usuario,
   Loja,
@@ -280,5 +294,12 @@ export {
   DevolucaoCarrinho,
   RoteiroLocalizacao,
   AlertaResolvido,
+  CreditoRemotoLink,
+  CreditoRemotoEnvio,
+  MachinePayStatus,
+  MachinePayDiario,
+  MachinePayEvento,
+  MachinePayConta,
+  MachinePayHorario,
   sequelize, // <-- exporta a conexão
 };

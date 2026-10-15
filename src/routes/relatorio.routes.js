@@ -8,14 +8,14 @@ import {
   relatorioComissoes,
   relatorioRoteiro,
 } from "../controllers/relatorioController.js";
-import { autenticar, autorizarRole } from "../middlewares/auth.js";
+import { autenticar, autorizarPermissao } from "../middlewares/auth.js";
 import { cacheGet } from "../middlewares/httpCache.js";
 
 const router = express.Router();
 router.get(
   "/roteiro",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("relatorios", "ADMIN"),
   cacheGet({ ttlSeconds: 20 }),
   relatorioRoteiro
 );
@@ -24,35 +24,35 @@ router.get(
 router.get(
   "/balanco-semanal",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao(["relatorios", "graficos", "dashboard.resumo", "dashboard.distribuicaoLojas"], "ADMIN"),
   cacheGet({ ttlSeconds: 20 }),
   balançoSemanal
 );
 router.get(
   "/alertas-estoque",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao(["relatorios", "alertasEstoque", "dashboard.resumo", "dashboard.alertasMaquinas"], "ADMIN"),
   cacheGet({ ttlSeconds: 20 }),
   alertasEstoque
 );
 router.get(
   "/performance-maquinas",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao(["relatorios", "graficos"], "ADMIN"),
   cacheGet({ ttlSeconds: 20 }),
   performanceMaquinas
 );
 router.get(
   "/impressao",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("relatorios", "ADMIN"),
   cacheGet({ ttlSeconds: 15 }),
   relatorioImpressao
 );
 router.get(
   "/comissoes",
   autenticar,
-  autorizarRole("ADMIN"),
+  autorizarPermissao("relatorios", "ADMIN"),
   cacheGet({ ttlSeconds: 20 }),
   relatorioComissoes
 );

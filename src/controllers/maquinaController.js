@@ -1,5 +1,8 @@
 import { Maquina, Loja, Movimentacao } from "../models/index.js";
 import { descobrirUsrDePosId } from "../services/machinePayService.js";
+import { normalizarHorarioFuncionamento } from "../utils/horarioFuncionamento.js";
+
+const REGIOES = ["CAPITAL", "INTERIOR"];
 
 // US05 - Listar máquinas
 export const listarMaquinas = async (req, res) => {
@@ -103,12 +106,22 @@ export const criarMaquina = async (req, res) => {
       localizacao,
       machinePayPosId,
       machinePayUsrId,
+      horarioFuncionamento,
+      regiao,
     } = req.body;
 
     if (!codigo || !lojaId) {
       return res
         .status(400)
         .json({ error: "Código e ID da loja são obrigatórios" });
+    }
+
+    const horario = normalizarHorarioFuncionamento(horarioFuncionamento);
+    if (horario.erro) {
+      return res.status(400).json({ error: horario.erro });
+    }
+    if (regiao && !REGIOES.includes(regiao)) {
+      return res.status(400).json({ error: "Região deve ser CAPITAL ou INTERIOR" });
     }
 
     // Verificar se código já existe
@@ -146,6 +159,8 @@ export const criarMaquina = async (req, res) => {
       localizacao,
       machinePayPosId: machinePayPosId || null,
       machinePayUsrId: machinePayUsrId || null,
+      horarioFuncionamento: horario.valor,
+      regiao: regiao || "CAPITAL",
     });
 
     // Descoberta best-effort do usrId (só relevante para status online/offline
@@ -201,7 +216,21 @@ export const atualizarMaquina = async (req, res) => {
       ativo,
       machinePayPosId,
       machinePayUsrId,
+      horarioFuncionamento,
+      regiao,
     } = req.body;
+
+    // undefined = não mexe; null = volta a ser 24h
+    const horario =
+      horarioFuncionamento === undefined
+        ? { valor: maquina.horarioFuncionamento }
+        : normalizarHorarioFuncionamento(horarioFuncionamento);
+    if (horario.erro) {
+      return res.status(400).json({ error: horario.erro });
+    }
+    if (regiao && !REGIOES.includes(regiao)) {
+      return res.status(400).json({ error: "Região deve ser CAPITAL ou INTERIOR" });
+    }
 
     // Verificar se novo código já existe em outra máquina
     if (codigo && codigo !== maquina.codigo) {
@@ -242,6 +271,8 @@ export const atualizarMaquina = async (req, res) => {
       ativo: ativo ?? maquina.ativo,
       machinePayPosId: machinePayPosId ?? maquina.machinePayPosId,
       machinePayUsrId: machinePayUsrId ?? maquina.machinePayUsrId,
+      horarioFuncionamento: horario.valor,
+      regiao: regiao || maquina.regiao,
     });
 
     // Descoberta best-effort do usrId quando um posId novo foi definido sem usrId

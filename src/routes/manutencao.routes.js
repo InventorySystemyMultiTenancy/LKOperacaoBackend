@@ -5,7 +5,7 @@ import {
   atualizarManutencao,
   registrarManutencaoSemRoteiro,
 } from "../controllers/roteiroController.js";
-import { autenticar, autorizarRole } from "../middlewares/auth.js";
+import { autenticar, autorizarPermissao } from "../middlewares/auth.js";
 
 const router = express.Router();
 
@@ -18,7 +18,7 @@ router.get("/", listarManutencoes);
 router.put(
   "/:id",
   autenticar,
-  autorizarRole("ADMIN", "FUNCIONARIO"),
+  autorizarPermissao("manutencoes.atualizar", "ADMIN", "FUNCIONARIO"),
   atualizarManutencao,
 );
 // DELETE /api/manutencoes/:id - Excluir manutenção

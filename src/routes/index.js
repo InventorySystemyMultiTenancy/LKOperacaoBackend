@@ -19,6 +19,7 @@ import movimentacaoVeiculoRoutes from "./movimentacaoVeiculo.routes.js";
 import resetManualRoutes from "./resetManual.routes.js";
 import carrinhoUsuarioRoutes from "./carrinhoUsuario.routes.js";
 import machinePayRoutes from "./machinePay.routes.js";
+import creditoRemotoRoutes from "./creditoRemoto.routes.js";
 const router = express.Router();
 router.use("/manutencoes", manutencaoRoutes);
 
@@ -44,5 +45,6 @@ router.use("/movimentacao-veiculos", movimentacaoVeiculoRoutes);
 router.use("/reset-semanal-manual", resetManualRoutes);
 router.use("/carrinho-usuarios", carrinhoUsuarioRoutes);
 router.use("/machine-pay", machinePayRoutes);
+router.use("/credito-remoto", creditoRemotoRoutes);
 
 export default router;

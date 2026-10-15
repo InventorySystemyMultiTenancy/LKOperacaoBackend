@@ -127,6 +127,20 @@ const Maquina = sequelize.define(
       field: "machine_pay_usr_id",
       comment: "ID da conta/cliente dona do posId no painel Machine Pay",
     },
+    regiao: {
+      type: DataTypes.STRING(10),
+      allowNull: false,
+      defaultValue: "CAPITAL",
+      validate: { isIn: [["CAPITAL", "INTERIOR"]] },
+      comment: "CAPITAL ou INTERIOR",
+    },
+    horarioFuncionamento: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      field: "horario_funcionamento",
+      comment:
+        "Dias/horários em que o ponto fica aberto ({ '0'..'6': { inicio, fim } }). null = 24h",
+    },
     ativo: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,

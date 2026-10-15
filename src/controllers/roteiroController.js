@@ -52,6 +52,9 @@ export const registrarManutencaoSemRoteiro = async (req, res) => {
     const manutencaoComFuncionario = await Manutencao.findByPk(manutencao.id, {
       include: [
         { model: Usuario, as: "funcionario", attributes: ["id", "nome"] },
+        // Loja e máquina completas para o texto do WhatsApp enviado logo após criar
+        { model: Loja, as: "loja", attributes: ["id", "nome", "endereco", "cidade", "estado"] },
+        { model: Maquina, as: "maquina", attributes: ["id", "codigo", "nome"] },
       ],
     });
     res.status(201).json({ message: "Manutenção registrada com sucesso", manutencao: manutencaoComFuncionario });
@@ -103,11 +106,16 @@ export const atualizarManutencao = async (req, res) => {
 // GET /api/manutencoes - Lista todas as manutenções com loja, roteiro e máquina
 export const listarManutencoes = async (req, res) => {
   try {
+    // ?maquinaId= filtra o histórico de uma máquina (usado na página Machine Pay)
+    const where = {};
+    if (req.query.maquinaId) where.maquinaId = req.query.maquinaId;
+
     const manutencoes = await Manutencao.findAll({
+      where,
       include: [
         { model: Loja, as: "loja", attributes: ["id", "nome", "endereco", "cidade", "estado"] },
         { model: Roteiro, as: "roteiro", attributes: ["id", "zona"] },
-        { model: Maquina, as: "maquina", attributes: ["id", "nome"] },
+        { model: Maquina, as: "maquina", attributes: ["id", "codigo", "nome"] },
         { model: Usuario, as: "funcionario", attributes: ["id", "nome"] },
       ],
       order: [["createdAt", "DESC"]],
@@ -123,7 +131,7 @@ export const listarManutencoes = async (req, res) => {
 // Lista roteiros concluídos com inconsistências (ADMIN only)
 export const listarAlertasRoteirosFinalizadosIncompletos = async (req, res) => {
   try {
-    if (req.usuario?.role !== "ADMIN") {
+    if (!temPermissao(req.usuario, ["movimentacoes.gerenciar", "roteiros.gerenciar"])) {
       return res.status(403).json({ error: "Acesso negado" });
     }
 
@@ -371,6 +379,9 @@ export const registrarManutencao = async (req, res) => {
     const manutencaoComFuncionario = await Manutencao.findByPk(manutencao.id, {
       include: [
         { model: Usuario, as: "funcionario", attributes: ["id", "nome"] },
+        // Loja e máquina completas para o texto do WhatsApp enviado logo após criar
+        { model: Loja, as: "loja", attributes: ["id", "nome", "endereco", "cidade", "estado"] },
+        { model: Maquina, as: "maquina", attributes: ["id", "codigo", "nome"] },
       ],
     });
     res.status(201).json({ message: "Manutenção registrada com sucesso", manutencao: manutencaoComFuncionario });
@@ -390,6 +401,7 @@ import {
   precisaAutocorrecaoLock,
 } from "../utils/roteiroLockRules.js";
 import { encerrarLocalizacoesAtivasDoRoteiro } from "./roteiroLocalizacaoController.js";
+import { temPermissao } from "../utils/permissoes.js";
 
 const resumoAlertaFinalizacaoVazio = () => ({
   possuiAlertaFinalizacao: false,
@@ -855,7 +867,7 @@ export const listarRoteiros = async (req, res) => {
         roteiroData.permiteGerenciarLojas = true;
         roteiroData.permiteMoverLojas = true;
         roteiroData.permiteRemoverLojas = true;
-        roteiroData.permiteFinalizacaoAdminComPendencias = req.usuario.role === "ADMIN";
+        roteiroData.permiteFinalizacaoAdminComPendencias = temPermissao(req.usuario, "movimentacoes.gerenciar");
 
         // Buscar lojas associadas ao roteiro
         const roteirosLojas = await RoteiroLoja.findAll({
@@ -1249,7 +1261,7 @@ export const obterRoteiro = async (req, res) => {
     roteiroData.permiteGerenciarLojas = true;
     roteiroData.permiteMoverLojas = true;
     roteiroData.permiteRemoverLojas = true;
-    roteiroData.permiteFinalizacaoAdminComPendencias = req.usuario.role === "ADMIN";
+    roteiroData.permiteFinalizacaoAdminComPendencias = temPermissao(req.usuario, "movimentacoes.gerenciar");
 
     // Buscar lojas associadas ao roteiro
     const roteirosLojas = await RoteiroLoja.findAll({
@@ -1701,7 +1713,7 @@ export const concluirRoteiro = async (req, res) => {
         status: roteiro.status,
         statusAnterior,
         finalizadoPorAdminComPendencias:
-          req.usuario.role === "ADMIN" &&
+          temPermissao(req.usuario, "movimentacoes.gerenciar") &&
           alertaFinalizacao.foiFinalizadoSemConcluirTodasLojas,
         alertaFinalizacao,
       },

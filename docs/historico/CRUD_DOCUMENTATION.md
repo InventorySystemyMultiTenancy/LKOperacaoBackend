@@ -1,8 +1,8 @@
-# 🏪 Sistema Completo de CRUD - LK Operação
+# 🏪 Sistema Completo de CRUD - Agarra Mais
 
 ## 📋 Visão Geral
 
-Este documento descreve todas as páginas CRUD (Create, Read, Update, Delete) implementadas no sistema LK Operação para gerenciar lojas, máquinas, produtos e movimentações de pelúcias.
+Este documento descreve todas as páginas CRUD (Create, Read, Update, Delete) implementadas no sistema Agarra Mais para gerenciar lojas, máquinas, produtos e movimentações de pelúcias.
 
 ## 🎯 Páginas Criadas
 
@@ -435,4 +435,4 @@ Para dúvidas ou problemas, consulte:
 
 ---
 
-**Desenvolvido com ❤️ para LK Operação** 🧸
+**Desenvolvido com ❤️ para Agarra Mais** 🧸

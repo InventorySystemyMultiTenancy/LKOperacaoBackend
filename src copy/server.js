@@ -28,7 +28,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:5174",
-  "https://lkoperacao.selfmachine.com.br",
+  "https://agarramaisop.selfmachine.com.br",
   process.env.FRONTEND_URL,
 ].filter(Boolean); // Remove undefined se FRONTEND_URL não estiver definida
 
@@ -60,7 +60,7 @@ app.use("/public", express.static(path.join(__dirname, "..", "public")));
 // Root route
 app.get("/", (req, res) => {
   res.json({
-    message: "LK Operação API",
+    message: "Agarra Mais API",
     version: "1.0.0",
     status: "online",
     endpoints: {
@@ -85,7 +85,7 @@ app.get("/health", (req, res) => {
 app.get("/debug/admin", async (req, res) => {
   const { Usuario } = await import("./models/index.js");
   const admin = await Usuario.findOne({
-    where: { email: process.env.ADMIN_EMAIL || "admin@lkoperacao.com" },
+    where: { email: process.env.ADMIN_EMAIL || "admin@agarramais.com" },
   });
   res.json({
     adminExists: !!admin,
@@ -122,7 +122,7 @@ const startServer = async () => {
 
     // Criar admin padrão se não existir
     const { Usuario } = await import("./models/index.js");
-    const adminEmail = process.env.ADMIN_EMAIL || "admin@lkoperacao.com";
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@agarramais.com";
     const adminExistente = await Usuario.findOne({
       where: { email: adminEmail },
     });
