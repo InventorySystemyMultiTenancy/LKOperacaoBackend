@@ -21,6 +21,7 @@ import carrinhoUsuarioRoutes from "./carrinhoUsuario.routes.js";
 import machinePayRoutes from "./machinePay.routes.js";
 import creditoRemotoRoutes from "./creditoRemoto.routes.js";
 import conferenciaRoutes from "./conferencia.routes.js";
+import arrecadacaoRoutes from "./arrecadacao.routes.js";
 const router = express.Router();
 router.use("/manutencoes", manutencaoRoutes);
 
@@ -48,5 +49,6 @@ router.use("/carrinho-usuarios", carrinhoUsuarioRoutes);
 router.use("/machine-pay", machinePayRoutes);
 router.use("/credito-remoto", creditoRemotoRoutes);
 router.use("/conferencias", conferenciaRoutes);
+router.use("/arrecadacoes", arrecadacaoRoutes);
 
 export default router;

@@ -3,6 +3,8 @@ import { Movimentacao, Maquina, Loja } from "../models/index.js";
 import { calcularConferencia } from "../utils/conferenciaMaquina.js";
 import { consultarFechamentoMachinePay } from "./machinePayService.js";
 
+export const TIPO_ARRECADACAO = "Arrecadação";
+
 const comContadores = {
   contadorIn: { [Op.ne]: null },
   contadorOut: { [Op.ne]: null },
@@ -15,7 +17,7 @@ const numero = (valor) => {
 };
 
 // Última leitura de relógio da máquina antes de `dataColeta`.
-const buscarLeituraAnterior = (maquinaId, dataColeta, idIgnorar = null) =>
+export const buscarLeituraAnterior = (maquinaId, dataColeta, idIgnorar = null) =>
   Movimentacao.findOne({
     where: {
       maquinaId,
@@ -29,7 +31,7 @@ const buscarLeituraAnterior = (maquinaId, dataColeta, idIgnorar = null) =>
 // Soma o que entrou entre a leitura anterior (exclusive) e a atual (inclusive).
 // Cada movimentação guarda o digital/dinheiro desde a movimentação anterior,
 // então a soma cobre exatamente o período entre as duas leituras de relógio.
-async function somarPeriodo(maquina, de, ate) {
+export async function somarPeriodo(maquina, de, ate) {
   const movimentacoes = await Movimentacao.findAll({
     where: {
       maquinaId: maquina.id,
@@ -42,6 +44,7 @@ async function somarPeriodo(maquina, de, ate) {
       "statusFinanceiro",
       "sairam",
       "retiradaEstoque",
+      "tipoOcorrencia",
     ],
   });
 
@@ -51,6 +54,8 @@ async function somarPeriodo(maquina, de, ate) {
   let fisicoPendente = false;
   let temFisico = false;
   let premiosEstoque = 0;
+  // Coleta feita pelo Controle de Arrecadação não conta pelúcias no estoque
+  let semContagemEstoque = false;
 
   for (const mov of movimentacoes) {
     const cartao = numero(mov.valorEntradaCartao);
@@ -68,6 +73,7 @@ async function somarPeriodo(maquina, de, ate) {
       fisico += (notas || 0) + (fichas || 0);
     }
 
+    if (mov.tipoOcorrencia === TIPO_ARRECADACAO) semContagemEstoque = true;
     if (!mov.retiradaEstoque) premiosEstoque += numero(mov.sairam) || 0;
   }
 
@@ -75,7 +81,7 @@ async function somarPeriodo(maquina, de, ate) {
     digital,
     digitalPendente,
     fisicoContado: temFisico && !fisicoPendente ? fisico : null,
-    premiosEstoque: movimentacoes.length ? premiosEstoque : null,
+    premiosEstoque: movimentacoes.length && !semContagemEstoque ? premiosEstoque : null,
   };
 }
 

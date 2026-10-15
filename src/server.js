@@ -207,6 +207,11 @@ const startServer = async () => {
       await removerBolinhasAutomaticas();
     }
 
+    // Comissão do ponto (Controle de Arrecadação)
+    await sequelize.query(
+      "ALTER TABLE lojas ADD COLUMN IF NOT EXISTS percentual_comissao DECIMAL(5,2) NOT NULL DEFAULT 0",
+    );
+
     // Criar admin padrão se não existir
     const { Usuario } = await import("./models/index.js");
     const adminEmail = process.env.ADMIN_EMAIL || "admin@toydiversoes.com";

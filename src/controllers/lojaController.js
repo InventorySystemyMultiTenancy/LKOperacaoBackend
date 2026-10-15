@@ -50,7 +50,7 @@ export const obterLoja = async (req, res) => {
 // US04 - Criar loja
 export const criarLoja = async (req, res) => {
   try {
-    const { nome, endereco, cidade, estado, responsavel, telefone } = req.body;
+    const { nome, endereco, cidade, estado, responsavel, telefone, percentualComissao } = req.body;
 
     if (!nome) {
       return res.status(400).json({ error: "Nome da loja é obrigatório" });
@@ -63,6 +63,7 @@ export const criarLoja = async (req, res) => {
       estado,
       responsavel,
       telefone,
+      percentualComissao: Number(percentualComissao) || 0,
     });
 
     res.locals.entityId = loja.id;
@@ -82,7 +83,7 @@ export const atualizarLoja = async (req, res) => {
       return res.status(404).json({ error: "Loja não encontrada" });
     }
 
-    const { nome, endereco, cidade, estado, responsavel, telefone, ativo } =
+    const { nome, endereco, cidade, estado, responsavel, telefone, ativo, percentualComissao } =
       req.body;
 
     await loja.update({
@@ -93,6 +94,10 @@ export const atualizarLoja = async (req, res) => {
       responsavel: responsavel ?? loja.responsavel,
       telefone: telefone ?? loja.telefone,
       ativo: ativo ?? loja.ativo,
+      percentualComissao:
+        percentualComissao !== undefined
+          ? Number(percentualComissao) || 0
+          : loja.percentualComissao,
     });
 
     res.json(loja);

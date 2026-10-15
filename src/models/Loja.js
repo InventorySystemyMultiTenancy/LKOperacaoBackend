@@ -38,6 +38,14 @@ const Loja = sequelize.define(
       type: DataTypes.STRING(20),
       allowNull: true,
     },
+    percentualComissao: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: false,
+      defaultValue: 0,
+      field: "percentual_comissao",
+      comment: "Comissão do ponto (%) sobre o valor bruto do Controle de Arrecadação",
+      validate: { min: 0, max: 100 },
+    },
     ativo: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,

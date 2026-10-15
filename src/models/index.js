@@ -40,6 +40,7 @@ import MachinePayDiario from "./MachinePayDiario.js";
 import MachinePayEvento from "./MachinePayEvento.js";
 import MachinePayConta from "./MachinePayConta.js";
 import MachinePayHorario from "./MachinePayHorario.js";
+import Arrecadacao from "./Arrecadacao.js";
 import { sequelize } from "../database/connection.js";
 
 // AlertaResolvido -> Usuario (quem marcou como resolvido)
@@ -267,6 +268,10 @@ CreditoRemotoEnvio.belongsTo(Maquina, { foreignKey: "maquinaId", as: "maquina" }
 CreditoRemotoLink.belongsTo(Maquina, { foreignKey: "maquinaId", as: "maquina" });
 CreditoRemotoLink.belongsTo(Usuario, { foreignKey: "criadoPorId", as: "criadoPor" });
 
+// Controle de Arrecadação
+Arrecadacao.belongsTo(Loja, { foreignKey: "lojaId", as: "loja" });
+Arrecadacao.belongsTo(Usuario, { foreignKey: "usuarioId", as: "usuario" });
+
 export {
   Usuario,
   Loja,
@@ -301,5 +306,6 @@ export {
   MachinePayEvento,
   MachinePayConta,
   MachinePayHorario,
+  Arrecadacao,
   sequelize, // <-- exporta a conexão
 };
