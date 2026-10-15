@@ -18,6 +18,7 @@ import {
   devolverPagamentoMonitor,
   salvarHorarioMonitor,
   salvarRegiaoMonitor,
+  listarLeitoresConta,
 } from "../controllers/machinePayMonitorController.js";
 import {
   autenticar,
@@ -76,6 +77,7 @@ router.get("/monitor/ranking-quedas", ...acessoMonitor, rankingQuedas);
 router.get("/monitor/serie-diaria", ...acessoMonitor, serieDiaria);
 router.get("/monitor/eventos", ...acessoMonitor, listarEventos);
 router.post("/monitor/coletar", ...acessoMonitor, coletarAgora);
+router.get("/conta/leitores", ...acessoMonitor, listarLeitoresConta);
 
 // Ações abertas pelo nome da máquina na página Machine Pay
 router.get(

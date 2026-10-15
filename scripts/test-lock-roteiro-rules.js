@@ -3,7 +3,7 @@ import {
   calcularBloqueioAtivoReal,
   limparEstadoLockLoja,
   precisaAutocorrecaoLock,
-} from "./src/utils/roteiroLockRules.js";
+} from "../src/utils/roteiroLockRules.js";
 
 const executarTeste = (nome, fn) => {
   try {

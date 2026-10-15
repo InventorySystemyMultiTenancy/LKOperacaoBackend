@@ -72,7 +72,7 @@ const whereMaquinasMachinePay = {
 // - máquina fixa = só aquela máquina;
 // - lojas escolhidas = máquinas Machine Pay ativas dessas lojas;
 // - nenhum dos dois = todas as máquinas ativas com ID Machine Pay (conta
-//   "Clube Kids (LIVIA)").
+//   "Toy Diversões").
 const whereMaquinasDoLink = (link) => {
   if (link?.maquinaId) return { ...whereMaquinasMachinePay, id: link.maquinaId };
   if (link?.lojaIds?.length) {
@@ -340,7 +340,7 @@ export const enviarCreditoPublico = async (req, res) => {
 
       return res.status(502).json({
         error:
-          "Não foi possível confirmar o envio com a máquina. Confira na máquina e, se o crédito não entrou, fale com a equipe Clube Kids.",
+          "Não foi possível confirmar o envio com a máquina. Confira na máquina e, se o crédito não entrou, fale com a equipe Toy Diversões.",
         restante,
         expirou: restante <= 0,
       });

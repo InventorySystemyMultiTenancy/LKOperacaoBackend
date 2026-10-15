@@ -23,7 +23,7 @@ export const sequelize = process.env.DATABASE_URL
       },
     })
   : new Sequelize(
-      process.env.DB_NAME || "agarramais_db",
+      process.env.DB_NAME || "toydiversoes_db",
       process.env.DB_USER || "postgres",
       process.env.DB_PASSWORD || "postgres",
       {

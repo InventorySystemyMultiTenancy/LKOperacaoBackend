@@ -103,6 +103,9 @@ export const criarMaquina = async (req, res) => {
       jogadasPremium,
       percentualAlertaEstoque,
       percentualComissao,
+      valorPulso,
+      valorJogada,
+      jogadasPorPremio,
       localizacao,
       machinePayPosId,
       machinePayUsrId,
@@ -156,6 +159,9 @@ export const criarMaquina = async (req, res) => {
       jogadasPremium: jogadasPremium || null,
       percentualAlertaEstoque: percentualAlertaEstoque || 30,
       percentualComissao: percentualComissao || 0,
+      valorPulso: valorPulso || 1,
+      valorJogada: valorJogada || null,
+      jogadasPorPremio: jogadasPorPremio || null,
       localizacao,
       machinePayPosId: machinePayPosId || null,
       machinePayUsrId: machinePayUsrId || null,
@@ -212,6 +218,9 @@ export const atualizarMaquina = async (req, res) => {
       jogadasPremium,
       percentualAlertaEstoque,
       percentualComissao,
+      valorPulso,
+      valorJogada,
+      jogadasPorPremio,
       localizacao,
       ativo,
       machinePayPosId,
@@ -267,6 +276,13 @@ export const atualizarMaquina = async (req, res) => {
       percentualAlertaEstoque:
         percentualAlertaEstoque ?? maquina.percentualAlertaEstoque,
       percentualComissao: percentualComissao ?? maquina.percentualComissao,
+      valorPulso: valorPulso ?? maquina.valorPulso,
+      valorJogada:
+        valorJogada !== undefined ? valorJogada || null : maquina.valorJogada,
+      jogadasPorPremio:
+        jogadasPorPremio !== undefined
+          ? jogadasPorPremio || null
+          : maquina.jogadasPorPremio,
       localizacao: localizacao ?? maquina.localizacao,
       ativo: ativo ?? maquina.ativo,
       machinePayPosId: machinePayPosId ?? maquina.machinePayPosId,

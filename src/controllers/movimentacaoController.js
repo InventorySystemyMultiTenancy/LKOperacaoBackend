@@ -1,4 +1,8 @@
 import {
+  atualizarConferenciaMovimentacao,
+  atualizarConferenciaComProxima,
+} from "../services/conferenciaService.js";
+import {
   Movimentacao,
   MovimentacaoProduto,
   Maquina,
@@ -48,6 +52,7 @@ export const registrarMovimentacao = async (req, res) => {
       valorEntradaCartao,
       roteiroId,
       numeroBag, // NOVO: número da bag
+      leituraFoto, // Leitura do relógio por foto (valores lidos e confiança)
     } = req.body;
 
     // Validações
@@ -361,6 +366,7 @@ export const registrarMovimentacao = async (req, res) => {
       // Gestão Financeira - Bag
       numeroBag: numeroBag || null,
       statusFinanceiro,
+      leituraFoto: leituraFoto || null,
     }, lockTransaction ? { transaction: lockTransaction } : undefined);
 
     if (lockTransaction) {
@@ -470,6 +476,9 @@ export const registrarMovimentacao = async (req, res) => {
         { where: { id: roteiroId } },
       );
     }
+
+    // Conferência da leitura de relógio (dinheiro físico e prêmios esperados)
+    await atualizarConferenciaMovimentacao(movimentacao.id);
 
     // Buscar movimentação completa para retornar
     const movimentacaoCompleta = await Movimentacao.findByPk(movimentacao.id, {
@@ -760,7 +769,12 @@ export const atualizarMovimentacao = async (req, res) => {
       }
     }
 
+    if (req.body.leituraFoto !== undefined) {
+      updateData.leituraFoto = req.body.leituraFoto || null;
+    }
     await movimentacao.update(updateData);
+    await atualizarConferenciaComProxima(movimentacao.id);
+    await movimentacao.reload();
 
     res.json(movimentacao);
   } catch (error) {
@@ -887,6 +901,8 @@ export const atualizarValoresFinanceiros = async (req, res) => {
       valorFaturado,
       statusFinanceiro: "concluido",
     });
+    await atualizarConferenciaMovimentacao(movimentacao.id);
+    await movimentacao.reload();
 
     // Fecha/zera o caixa da máquina na Machine Pay registrando o valor em dinheiro
     // confirmado. Best-effort: nunca desfaz o registro financeiro local se falhar.
@@ -985,6 +1001,8 @@ export const buscarValorDigitalMachinePay = async (req, res) => {
     });
 
     await movimentacao.update({ valorEntradaCartao: fechamento.cartaoPix });
+    await atualizarConferenciaMovimentacao(movimentacao.id);
+    await movimentacao.reload();
 
     res.json({ movimentacao, fechamento });
   } catch (error) {

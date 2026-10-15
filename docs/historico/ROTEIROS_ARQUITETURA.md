@@ -154,7 +154,7 @@
 ## 🗂️ Estrutura de Pastas
 
 ```
-ClubeKids1FirstClient/
+Toy Diversões1FirstClient/
 │
 ├── src/
 │   ├── models/

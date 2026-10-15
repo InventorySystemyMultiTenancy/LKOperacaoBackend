@@ -1,30 +1,63 @@
+# Blueprint da Toy Diversões na Render.
+# Render > New > Blueprint > escolha este repositório: cria o banco PostgreSQL
+# e o backend já ligados. Os campos marcados com "sync: false" são pedidos na
+# tela (senhas e chaves nunca ficam no código).
 services:
-  # Backend API
   - type: web
-    name: agarra-mais-backend
-    env: node
-    region: oregon
+    name: toydiversoes-backend
+    runtime: node
+    region: virginia
     plan: free
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: agarra-mais-db
+          name: toydiversoes-db
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: ADMIN_EMAIL
-        value: admin@agarramais.com
+        value: admin@toydiversoes.com
       - key: ADMIN_PASSWORD
         sync: false
+      - key: FRONTEND_URL
+        sync: false
+      # Leitura dos relógios por foto (Claude)
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Machine Pay (Cyberpix) — conta da Toy Diversões
+      - key: MACHINE_PAY_CONTA_NOME
+        value: Gleison Lucasda Silva
+      - key: MACHINE_PAY_LOGIN_URL
+        value: https://cyberpix.com.br/pix-adesivo-clientes/
+      - key: MACHINE_PAY_LOGIN
+        sync: false
+      - key: MACHINE_PAY_PASSWORD
+        sync: false
+      - key: MACHINE_PAY_CHAVE
+        sync: false
+      - key: MACHINE_PAY_API_TEMPLATE
+        value: https://cyberpix.com.br/pix-adesivo-clientes/maquinas.php?acao=stats&posid={posid}&dataini={inicio64}&datafim={fim64}&chave={chave}
+      - key: MACHINE_PAY_MQTT_METHOD
+        value: POST
+      - key: MACHINE_PAY_MQTT_ACAO
+        value: creditar
+      - key: MACHINE_PAY_MQTT_ORIGEM
+        value: "1"
+      - key: MACHINE_PAY_MQTT_TPAGTO
+        value: Manual
+      - key: MACHINE_PAY_MQTT_BANCO
+        value: Pagto manual criado
 
 databases:
-  - name: agarra-mais-db
+  - name: toydiversoes-db
+    region: virginia
     plan: free
-    databaseName: agarramais
-    user: agarramais
+    databaseName: toydiversoes
+    user: toydiversoes

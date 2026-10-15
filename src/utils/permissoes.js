@@ -23,6 +23,7 @@ export const PERMISSOES_VALIDAS = [
   "relatorios",
   "alertasEstoque",
   "veiculos",
+  "conferencia",
 
   // Funcionalidades
   "movimentacoes.gerenciar",

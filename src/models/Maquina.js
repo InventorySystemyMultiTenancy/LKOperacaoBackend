@@ -22,7 +22,7 @@ const Maquina = sequelize.define(
     tipo: {
       type: DataTypes.STRING(50),
       allowNull: true,
-      comment: "Ex: Agarra Mais, TakeBall",
+      comment: "Ex: Grua, TakeBall",
     },
     lojaId: {
       type: DataTypes.UUID,
@@ -91,6 +91,26 @@ const Maquina = sequelize.define(
       validate: {
         min: 1,
       },
+    },
+    valorPulso: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 1.0,
+      field: "valor_pulso",
+      comment: "Quanto vale cada pulso do contador IN (R$). Padrão: 1 pulso = R$ 1,00",
+    },
+    valorJogada: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: "valor_jogada",
+      comment: "Preço de uma jogada (R$). Ex: 2,00",
+    },
+    jogadasPorPremio: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: "jogadas_por_premio",
+      comment: "Configuração de pagamento: 1 prêmio a cada N jogadas. Ex: 15",
+      validate: { min: 1 },
     },
     percentualAlertaEstoque: {
       type: DataTypes.INTEGER,

@@ -1,4 +1,4 @@
-# Agarra Mais - Backend API
+# Toy Diversões - Backend API
 
 Sistema de gestão de estoque para máquinas de pelúcia (garra).
 
@@ -41,7 +41,7 @@ Edite o arquivo `.env` com suas configurações do PostgreSQL.
 4. Crie o banco de dados no PostgreSQL:
 
 ```sql
-CREATE DATABASE agarramais_db;
+CREATE DATABASE toydiversoes_db;
 ```
 
 5. Execute o servidor:
@@ -153,7 +153,7 @@ Authorization: Bearer SEU_TOKEN_AQUI
 ```bash
 curl -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "admin@agarramais.com", "senha": "Admin@123"}'
+  -d '{"email": "admin@toydiversoes.com", "senha": "Admin@123"}'
 ```
 
 ### Registrar Movimentação

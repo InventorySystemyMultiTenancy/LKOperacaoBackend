@@ -125,7 +125,7 @@ Isso executará a migration automaticamente na próxima vez que o Render fizer d
 
 ```bash
 # Teste o endpoint de estoque
-curl https://backend-agarramais.onrender.com/api/estoque-lojas/SEU_LOJA_ID
+curl https://toydiversoes-backend.onrender.com/api/estoque-lojas/SEU_LOJA_ID
 
 # Se retornar [] (array vazio) = sucesso!
 # Se retornar erro = tabela não existe ainda

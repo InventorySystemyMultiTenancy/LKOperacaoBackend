@@ -1,4 +1,4 @@
-// backendclubkids/src/jobs/resetSemanal.js
+// toydiversoes-backend/src/jobs/resetSemanal.js
 import cron from "node-cron";
 import { resetSemanalRoteiros } from "../utils/resetSemanalRoteiros.js";
 

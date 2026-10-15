@@ -120,7 +120,7 @@ async function seed() {
     console.log("👤 Criando usuário administrador...");
     const admin = await Usuario.create({
       nome: "Administrador",
-      email: process.env.ADMIN_EMAIL || "admin@agarramais.com",
+      email: process.env.ADMIN_EMAIL || "admin@toydiversoes.com",
       senha: process.env.ADMIN_PASSWORD || "Admin@123",
       role: "ADMIN",
       telefone: "(11) 99999-9999",
@@ -131,7 +131,7 @@ async function seed() {
     console.log("👤 Criando funcionário de teste...");
     const funcionario = await Usuario.create({
       nome: "João Silva",
-      email: "joao@agarramais.com",
+      email: "joao@toydiversoes.com",
       senha: "Func@123",
       role: "FUNCIONARIO",
       telefone: "(11) 98888-8888",

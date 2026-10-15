@@ -7,7 +7,7 @@ const fs = require("fs");
 const DB_HOST = "localhost"; // Altere conforme necessário
 const DB_USER = "root"; // Altere conforme necessário
 const DB_PASS = "sua_senha"; // Altere conforme necessário
-const SQL_FILE = "./src/database/schema.sql"; // Arquivo SQL com CREATE TABLEs
+const SQL_FILE = "../src/database/schema.sql"; // Arquivo SQL com CREATE TABLEs
 
 async function main() {
   const nomeEmpresa = process.argv[2];

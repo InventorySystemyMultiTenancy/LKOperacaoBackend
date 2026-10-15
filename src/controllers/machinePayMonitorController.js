@@ -13,6 +13,8 @@ import {
   ehCaixaLivre,
   monitorConfigurado,
   obterUltimoErroColeta,
+  listarLeitoresDaConta,
+  nomeContaConfigurada,
 } from "../services/machinePayMonitorService.js";
 import {
   MachinePayServiceError,
@@ -582,6 +584,16 @@ export const coletarAgora = async (req, res) => {
     res.json(resultado);
   } catch (error) {
     responderErro(res, error, "Erro ao coletar status na Machine Pay");
+  }
+};
+
+// Leitores (POS) da conta Machine Pay da empresa e se já estão cadastrados
+export const listarLeitoresConta = async (req, res) => {
+  try {
+    const resultado = await listarLeitoresDaConta();
+    res.json({ nomeConfigurado: nomeContaConfigurada(), ...resultado });
+  } catch (error) {
+    responderErro(res, error, "Erro ao listar os leitores da conta Machine Pay");
   }
 };
 

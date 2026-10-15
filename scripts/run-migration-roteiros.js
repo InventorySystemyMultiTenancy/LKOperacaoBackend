@@ -1,5 +1,5 @@
-import { sequelize } from "./src/database/connection.js";
-import { addRoteirosTables } from "./src/database/migrations/add-roteiros-tables.js";
+import { sequelize } from "../src/database/connection.js";
+import { addRoteirosTables } from "../src/database/migrations/add-roteiros-tables.js";
 
 console.log("🚀 Iniciando migration de roteiros...");
 

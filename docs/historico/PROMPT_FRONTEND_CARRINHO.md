@@ -11,8 +11,8 @@ Implementar interface para controlar a quantidade de produtos que cada funcioná
 ### 🔑 Permissões Especiais
 
 **IMPORTANTE:** Além de admins, os seguintes usuários têm acesso completo à gestão de carrinhos:
-- `eriky@clubekids.com`
-- `gerson@clubekids.com`
+- `eriky@toydiversoes.com`
+- `gerson@toydiversoes.com`
 
 Estes usuários podem acessar todas as funcionalidades **independente de serem admin ou não**.
 
@@ -21,7 +21,7 @@ Estes usuários podem acessar todas as funcionalidades **independente de serem a
 const userEmail = localStorage.getItem('userEmail');
 const isAdmin = localStorage.getItem('userRole') === 'ADMIN';
 const temAcessoCarrinhos = isAdmin || 
-  ['eriky@clubekids.com', 'gerson@clubekids.com'].includes(userEmail);
+  [] // use as permissões personalizadas do usuário.includes(userEmail);
 
 // Usar temAcessoCarrinhos para controlar acesso
 {temAcessoCarrinhos && <CarrinhosPage />}
@@ -182,7 +182,7 @@ const response = await fetch('/api/carrinho-usuarios/devolucao', {
 #### Seção "Criar Carrinho"
 **Localização:** Página de gestão de carrinhos (nova página ou aba)
 
-**Permissão:** Admin OU emails autorizados (`eriky@clubekids.com`, `gerson@clubekids.com`)
+**Permissão:** Admin OU emails autorizados (`eriky@toydiversoes.com`, `gerson@toydiversoes.com`)
 
 **Endpoint:** `POST /api/carrinho-usuarios`
 
@@ -260,7 +260,7 @@ const response = await fetch('/api/carrinho-usuarios', {
 #### Devolver pelo Funcionário (NOVO - Admin ou Usuários Autorizados)
 **Localização:** Lista de carrinhos ativos - Botão ao lado de "Editar"
 
-**Permissão:** Admin OU usuários com emails `eriky@clubekids.com` e `gerson@clubekids.com`
+**Permissão:** Admin OU usuários com emails `eriky@toydiversoes.com` e `gerson@toydiversoes.com`
 
 **Endpoint:** `POST /api/carrinho-usuarios/devolucao-admin`
 

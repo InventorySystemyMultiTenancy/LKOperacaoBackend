@@ -29,8 +29,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:5174",
-  "https://agarramaisop.selfmachine.com.br",
-  "https://clubekids.selfmachine.com.br",
+  "https://toydiversoes.selfmachine.com.br",
   process.env.FRONTEND_URL,
 ].filter(Boolean); // Remove undefined se FRONTEND_URL não estiver definida
 
@@ -54,7 +53,8 @@ app.use(
   }),
 );
 app.use(morgan("dev"));
-app.use(express.json());
+// Limite maior para as fotos de relógio (leitura por foto)
+app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Servir arquivos estáticos da pasta public
@@ -63,7 +63,7 @@ app.use("/public", express.static(path.join(__dirname, "..", "public")));
 // Root route
 app.get("/", (req, res) => {
   res.json({
-    message: "Agarra Mais API",
+    message: "Toy Diversões API",
     version: "1.0.0",
     status: "online",
     endpoints: {
@@ -88,7 +88,7 @@ app.get("/health", (req, res) => {
 app.get("/debug/admin", async (req, res) => {
   const { Usuario } = await import("./models/index.js");
   const admin = await Usuario.findOne({
-    where: { email: process.env.ADMIN_EMAIL || "admin@agarramais.com" },
+    where: { email: process.env.ADMIN_EMAIL || "admin@toydiversoes.com" },
   });
   res.json({
     adminExists: !!admin,
@@ -159,9 +159,29 @@ const startServer = async () => {
       "ALTER TABLE machine_pay_horarios ALTER COLUMN horario_funcionamento DROP NOT NULL",
     );
 
+    // Conferência por leitura de relógio (Toy Diversões)
+    await sequelize.query(
+      "ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS valor_pulso DECIMAL(10,2) NOT NULL DEFAULT 1",
+    );
+    await sequelize.query(
+      "ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS valor_jogada DECIMAL(10,2)",
+    );
+    await sequelize.query(
+      "ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS jogadas_por_premio INTEGER",
+    );
+    await sequelize.query(
+      "ALTER TABLE movimentacoes ADD COLUMN IF NOT EXISTS conferencia JSONB",
+    );
+    await sequelize.query(
+      "ALTER TABLE movimentacoes ADD COLUMN IF NOT EXISTS nivel_conferencia VARCHAR(10)",
+    );
+    await sequelize.query(
+      "ALTER TABLE movimentacoes ADD COLUMN IF NOT EXISTS leitura_foto JSONB",
+    );
+
     // Criar admin padrão se não existir
     const { Usuario } = await import("./models/index.js");
-    const adminEmail = process.env.ADMIN_EMAIL || "admin@agarramais.com";
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@toydiversoes.com";
     const adminExistente = await Usuario.findOne({
       where: { email: adminEmail },
     });

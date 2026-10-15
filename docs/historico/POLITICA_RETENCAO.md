@@ -121,16 +121,16 @@ if (horas === 3) {
 
 ```bash
 # 1. Fazer login como admin
-curl -X POST https://backend-agarramais.onrender.com/api/auth/login \
+curl -X POST https://toydiversoes-backend.onrender.com/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@agarramais.com","senha":"Admin@123"}'
+  -d '{"email":"admin@toydiversoes.com","senha":"Admin@123"}'
 
 # 2. Verificar dados para limpeza (copie o token do passo 1)
-curl https://backend-agarramais.onrender.com/api/admin/verificar-limpeza \
+curl https://toydiversoes-backend.onrender.com/api/admin/verificar-limpeza \
   -H "Authorization: Bearer SEU_TOKEN_AQUI"
 
 # 3. Executar limpeza manualmente
-curl -X POST https://backend-agarramais.onrender.com/api/admin/limpar-dados-antigos \
+curl -X POST https://toydiversoes-backend.onrender.com/api/admin/limpar-dados-antigos \
   -H "Authorization: Bearer SEU_TOKEN_AQUI"
 ```
 

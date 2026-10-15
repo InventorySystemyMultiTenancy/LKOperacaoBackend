@@ -185,6 +185,24 @@ const Movimentacao = sequelize.define(
       allowNull: true,
       field: "datarecebido",
     },
+    conferencia: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      comment:
+        "Conferência da leitura de relógio: dinheiro físico esperado, prêmios esperados e alertas",
+    },
+    nivelConferencia: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+      field: "nivel_conferencia",
+      comment: "OK, LEVE ou URGENTE (pior alerta da conferência)",
+    },
+    leituraFoto: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      field: "leitura_foto",
+      comment: "Valores lidos da foto do relógio (IN/OUT), confiança e se foram corrigidos",
+    },
     mediaFichasPremio: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,

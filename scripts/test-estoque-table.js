@@ -1,5 +1,5 @@
 // Script de teste para verificar se a tabela estoque_lojas existe
-import { sequelize } from "./src/database/connection.js";
+import { sequelize } from "../src/database/connection.js";
 
 async function testarTabela() {
   try {
@@ -40,7 +40,7 @@ async function testarTabela() {
 
     // Testar rota
     console.log("\n🧪 Testando rotas...");
-    const { default: routes } = await import("./src/routes/index.js");
+    const { default: routes } = await import("../src/routes/index.js");
     console.log("✅ Rotas carregadas com sucesso");
 
     process.exit(0);

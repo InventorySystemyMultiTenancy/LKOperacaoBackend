@@ -383,7 +383,7 @@ Sistema gera alertas para produtos com discrepância.
 
 **Response:** Mesma estrutura da devolução normal, mas a observação incluirá automaticamente:
 ```
-"observacao": "(Registrado por eriky@clubekids.com) Funcionário saiu mais cedo"
+"observacao": "(Registrado por eriky@toydiversoes.com) Funcionário saiu mais cedo"
 ```
 
 ---

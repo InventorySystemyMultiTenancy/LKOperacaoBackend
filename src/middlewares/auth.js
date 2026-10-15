@@ -125,7 +125,7 @@ export const verificarAdmin = autorizarRole("ADMIN");
 // Middleware para autorizar ADMIN ou emails específicos autorizados
 // Usado para dar permissões de admin a usuários específicos (eriky e gerson)
 export const autorizarAdminOuEmailAutorizado = (req, res, next) => {
-  const emailsAutorizados = ["eriky@clubekids.com", "gerson@clubekids.com"];
+  const emailsAutorizados = [] // use as permissões personalizadas do usuário;
   
   // Permite se for ADMIN ou se tiver email autorizado
   if (req.usuario.role === "ADMIN" || emailsAutorizados.includes(req.usuario.email)) {

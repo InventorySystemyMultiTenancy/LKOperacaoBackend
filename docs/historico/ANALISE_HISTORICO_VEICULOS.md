@@ -106,7 +106,7 @@ ORDER BY tipo;
 
 ```bash
 # No Postman ou curl:
-curl -X GET "https://clubekids1firstclient.onrender.com/api/movimentacao-veiculos" \
+curl -X GET "https://toydiversoes-backend.onrender.com/api/movimentacao-veiculos" \
   -H "Authorization: Bearer SEU_TOKEN"
 ```
 

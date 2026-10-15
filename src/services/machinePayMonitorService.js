@@ -60,6 +60,111 @@ export const monitorConfigurado = () =>
       process.env.MACHINE_PAY_PASSWORD,
   );
 
+// ---- Conta Machine Pay da empresa ----
+// O login do painel enxerga as máquinas de vários clientes. Com
+// MACHINE_PAY_CONTA_NOME definido (ex: "Gleison Lucasda Silva"), o sistema
+// usa apenas a conta (usr) desse cliente: monitoramento, leitores e cadastro.
+
+export const nomeContaConfigurada = () =>
+  String(process.env.MACHINE_PAY_CONTA_NOME || "").trim() || null;
+
+// Compara nomes ignorando acentos, maiúsculas, espaços e pontuação
+// ("Gleison Lucasda Silva" == "GLEISON LUCAS DA SILVA").
+export const normalizarNomeConta = (nome) =>
+  String(nome || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+export const ehDaContaConfigurada = (cliente) => {
+  const alvo = normalizarNomeConta(nomeContaConfigurada());
+  if (!alvo) return true;
+  const nome = normalizarNomeConta(cliente);
+  return Boolean(nome) && (nome === alvo || nome.includes(alvo) || alvo.includes(nome));
+};
+
+let contaResolvida = null;
+
+// Descobre o usr da conta pelo nome do cliente que o painel mostra em cada
+// leitor. Procura na listagem geral e nas contas já conhecidas; guarda o
+// resultado em machine_pay_contas para não precisar procurar de novo.
+export async function resolverContaPorNome({ forcar = false } = {}) {
+  const nome = nomeContaConfigurada();
+  if (!nome) return null;
+  if (contaResolvida && !forcar) return contaResolvida;
+
+  if (!forcar) {
+    const salvas = await MachinePayConta.findAll({ raw: true });
+    const salva = salvas.find((c) => c.nome && ehDaContaConfigurada(c.nome));
+    if (salva) {
+      contaResolvida = { usrId: salva.usrId, nome: salva.nome };
+      return contaResolvida;
+    }
+  }
+
+  const candidatos = [undefined, ...usrsDoEnv()];
+  for (const usrId of candidatos) {
+    let leituras = [];
+    try {
+      leituras = parsearPainelMaquinas(await listarMaquinasCadastradas({ usrId }));
+    } catch (error) {
+      console.error("[MachinePay] Falha ao procurar conta por nome:", error.message);
+      continue;
+    }
+    const encontrada = leituras.find((l) => l.usrId && ehDaContaConfigurada(l.cliente));
+    if (encontrada) {
+      contaResolvida = { usrId: encontrada.usrId, nome: encontrada.cliente };
+      await MachinePayConta.bulkCreate(
+        [{ usrId: encontrada.usrId, nome: encontrada.cliente?.slice(0, 150) || nome }],
+        { updateOnDuplicate: ["nome", "updatedAt"] },
+      );
+      return contaResolvida;
+    }
+  }
+
+  return null;
+}
+
+// Leitores (POS) da conta configurada, marcando quais já estão cadastrados
+// em máquinas do sistema — base da tela "Leitores da conta".
+export async function listarLeitoresDaConta() {
+  const conta = await resolverContaPorNome();
+  if (nomeContaConfigurada() && !conta) {
+    throw new MachinePayServiceError(
+      404,
+      `Conta Machine Pay "${nomeContaConfigurada()}" não encontrada no painel. Confira MACHINE_PAY_CONTA_NOME ou informe o usr em MACHINE_PAY_USR.`,
+    );
+  }
+
+  const html = await listarMaquinasCadastradas({ usrId: conta?.usrId });
+  const leituras = parsearPainelMaquinas(html).filter(
+    (l) => !conta || l.usrId === conta.usrId || ehDaContaConfigurada(l.cliente),
+  );
+
+  const maquinas = await Maquina.findAll({
+    where: { machinePayPosId: { [Op.ne]: null } },
+    attributes: ["id", "codigo", "nome", "machinePayPosId", "lojaId"],
+    raw: true,
+  });
+  const porPosId = new Map(
+    maquinas.map((m) => [String(m.machinePayPosId).trim(), m]),
+  );
+
+  return {
+    conta,
+    leitores: leituras.map((l) => ({
+      posId: l.posId,
+      nomePonto: l.nomePonto,
+      cliente: l.cliente,
+      online: l.online,
+      caixaLivre: ehCaixaLivre(l.nomePonto),
+      vendasHojeValor: l.vendasHojeValor,
+      maquina: porPosId.get(l.posId) || null,
+    })),
+  };
+}
+
 // Máximo de extratos consultados por coleta para descobrir o dono de um posId
 // (cada consulta baixa uma página do painel).
 const MAX_DESCOBERTAS_POR_COLETA = 5;
@@ -73,6 +178,20 @@ const posIdsSemDono = new Set();
 // descoberta pelo extrato do posId; toda conta nova é salva e passa a ser lida
 // sempre, sem precisar ser descoberta de novo.
 async function resolverContasMonitoradas() {
+  if (nomeContaConfigurada()) {
+    const conta = await resolverContaPorNome();
+    const totalCadastradas = await Maquina.count({
+      where: { machinePayPosId: { [Op.ne]: null } },
+    });
+    if (!conta) {
+      throw new MachinePayServiceError(
+        404,
+        `Conta Machine Pay "${nomeContaConfigurada()}" não encontrada no painel. Confira MACHINE_PAY_CONTA_NOME ou informe o usr em MACHINE_PAY_USR.`,
+      );
+    }
+    return { usrs: [conta.usrId], totalCadastradas };
+  }
+
   const [maquinas, contasSalvas] = await Promise.all([
     Maquina.findAll({
       where: { machinePayPosId: { [Op.ne]: null } },
@@ -172,6 +291,9 @@ async function executarColeta() {
     const html = await listarMaquinasCadastradas({ usrId });
     for (const leitura of parsearPainelMaquinas(html)) {
       if (vistos.has(leitura.posId)) continue;
+      if (nomeContaConfigurada() && leitura.cliente && !ehDaContaConfigurada(leitura.cliente)) {
+        continue;
+      }
       vistos.add(leitura.posId);
       if (ehCaixaLivre(leitura.nomePonto)) {
         caixasLivres.add(leitura.posId);

@@ -1,5 +1,5 @@
-import { sequelize } from "./src/database/connection.js";
-import { addSemanaInicioRoteiros } from "./src/database/migrations/add-semana-inicio-roteiros.js";
+import { sequelize } from "../src/database/connection.js";
+import { addSemanaInicioRoteiros } from "../src/database/migrations/add-semana-inicio-roteiros.js";
 
 console.log("🚀 Iniciando migration: adicionar semana_inicio em roteiros...");
 

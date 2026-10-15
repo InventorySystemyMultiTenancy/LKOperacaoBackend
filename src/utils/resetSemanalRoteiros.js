@@ -1,4 +1,4 @@
-// backendclubkids/src/utils/resetSemanalRoteiros.js
+// toydiversoes-backend/src/utils/resetSemanalRoteiros.js
 import * as db from "../models/index.js";
 
 /**

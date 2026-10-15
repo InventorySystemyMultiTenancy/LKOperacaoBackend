@@ -1,4 +1,4 @@
-import { up, down } from "./src/database/migrations/add-comissao-maquinas-lojas.js";
+import { up, down } from "../src/database/migrations/add-comissao-maquinas-lojas.js";
 
 console.log("🚀 Executando migration de comissões...\n");
 

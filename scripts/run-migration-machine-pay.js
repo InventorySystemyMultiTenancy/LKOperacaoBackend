@@ -1,4 +1,4 @@
-import { up, down } from "./src/database/migrations/20260713-add-machine-pay-maquinas.js";
+import { up, down } from "../src/database/migrations/20260713-add-machine-pay-maquinas.js";
 
 const reverter = process.argv.includes("--down");
 

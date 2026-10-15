@@ -1,5 +1,5 @@
 // Script de teste para validar o desconto automático de estoque
-import { sequelize } from "./src/database/connection.js";
+import { sequelize } from "../src/database/connection.js";
 import {
   Loja,
   Maquina,
@@ -8,7 +8,7 @@ import {
   Movimentacao,
   MovimentacaoProduto,
   Usuario,
-} from "./src/models/index.js";
+} from "../src/models/index.js";
 
 async function testarDescontoAutomatico() {
   try {
