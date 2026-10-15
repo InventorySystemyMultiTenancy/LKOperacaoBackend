@@ -25,13 +25,18 @@ app.use(
 );
 
 // Configurar CORS para aceitar localhost e produção
+// FRONTEND_URL aceita mais de um endereço separado por vírgula; barra no
+// final é ignorada (https://site.vercel.app/ == https://site.vercel.app).
+const normalizarOrigem = (url) => String(url || "").trim().replace(/\/+$/, "");
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:5174",
   "https://toydiversoes.selfmachine.com.br",
-  process.env.FRONTEND_URL,
-].filter(Boolean); // Remove undefined se FRONTEND_URL não estiver definida
+  ...String(process.env.FRONTEND_URL || "").split(","),
+]
+  .map(normalizarOrigem)
+  .filter(Boolean);
 
 app.use(
   cors({
@@ -40,10 +45,13 @@ app.use(
       if (!origin) return callback(null, true);
 
       // Se estiver na lista de origens permitidas ou for "*"
-      if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+      if (allowedOrigins.includes(normalizarOrigem(origin)) || allowedOrigins.includes("*")) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        console.warn(
+          `[CORS] Origem recusada: ${origin} — adicione em FRONTEND_URL (separe vários por vírgula).`,
+        );
+        callback(null, false);
       }
     },
     credentials: true,

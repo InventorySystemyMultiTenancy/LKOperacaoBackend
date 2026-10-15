@@ -21,6 +21,8 @@ const numero = (valor) => {
 const arredondar = (valor, casas = 2) =>
   valor === null ? null : Number(valor.toFixed(casas));
 
+const decimalBR = (valor) => String(valor).replace(".", ",");
+
 const reais = (valor) =>
   `R$ ${Number(valor || 0).toFixed(2).replace(".", ",")}`;
 
@@ -189,19 +191,19 @@ export function calcularConferencia({ maquina, anterior, atual, periodo = {} }) 
       alertar(
         "URGENTE",
         "PREMIOS_ACIMA",
-        `Saíram ${premiosSaida} prêmios, mas o configurado para ${reais(receitaContador)} é ${arredondar(premiosEsperados, 1)}. Máquina pagando muito acima — reconfigure a garra/pagamento.`,
+        `Saíram ${premiosSaida} prêmios, mas o configurado para ${reais(receitaContador)} é ${decimalBR(arredondar(premiosEsperados, 1))}. Máquina pagando muito acima — reconfigure a garra/pagamento.`,
       );
     } else if (excesso > 0) {
       alertar(
         "LEVE",
         "PREMIOS_ACIMA",
-        `Saíram ${premiosSaida} prêmios, ${excesso} a mais que o esperado (${arredondar(premiosEsperados, 1)}). Fique de olho na configuração.`,
+        `Saíram ${premiosSaida} prêmios, ${excesso} a mais que o esperado (${decimalBR(arredondar(premiosEsperados, 1))}). Fique de olho na configuração.`,
       );
     } else if (premiosEsperados >= 4 && premiosSaida < Math.floor(premiosEsperados * 0.5)) {
       alertar(
         "LEVE",
         "PREMIOS_ABAIXO",
-        `Saíram só ${premiosSaida} prêmios de ${arredondar(premiosEsperados, 1)} esperados — a máquina está pagando abaixo do configurado (garra fraca afasta clientes).`,
+        `Saíram só ${premiosSaida} prêmios de ${decimalBR(arredondar(premiosEsperados, 1))} esperados — a máquina está pagando abaixo do configurado (garra fraca afasta clientes).`,
       );
     }
   }
@@ -222,7 +224,7 @@ export function calcularConferencia({ maquina, anterior, atual, periodo = {} }) 
     digital !== null ? `digital ${reais(digital)}` : null,
     fisicoEsperado !== null ? `físico esperado ${reais(fisicoEsperado)}` : null,
     premiosEsperados !== null
-      ? `prêmios ${premiosSaida}/${arredondar(premiosEsperados, 1)} esperados`
+      ? `prêmios ${premiosSaida}/${decimalBR(arredondar(premiosEsperados, 1))} esperados`
       : `prêmios ${premiosSaida}`,
   ].filter(Boolean);
 

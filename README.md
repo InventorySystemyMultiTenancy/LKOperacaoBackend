@@ -2,6 +2,36 @@
 
 Sistema de gestão de estoque para máquinas de pelúcia (garra).
 
+## 🎯 Conferência dos relógios
+
+Cada leitura dos contadores IN/OUT (digitada ou lida por foto) é conferida
+contra a configuração da máquina e a Machine Pay:
+
+| Cálculo | Fórmula |
+|---|---|
+| Receita do contador | (IN atual − IN anterior) × valor do pulso (padrão R$ 1,00) |
+| Dinheiro físico esperado | receita do contador − digital da Machine Pay no período |
+| Jogadas | receita do contador ÷ valor da jogada |
+| Prêmios esperados | jogadas ÷ jogadas por prêmio |
+| Prêmios que saíram | OUT atual − OUT anterior |
+
+Ex.: jogada de R$ 2,00, 1 prêmio a cada 15 jogadas, R$ 60,00 no contador →
+30 jogadas → 2 prêmios. Saiu 1 a mais → alerta **LEVE**; muito acima →
+alerta **URGENTE** para reconfigurar a máquina. Também alerta dinheiro físico
+faltando, digital maior que o contador e contador zerado/trocado.
+
+- Regras: `src/utils/conferenciaMaquina.js` (testes em `test/conferenciaMaquina.test.js`)
+- Rotas: `/api/conferencias` (painel, prévia, leitura por foto, recalcular)
+- Leitura por foto: `src/services/leituraRelogioService.js` (Claude, `ANTHROPIC_API_KEY`)
+- Conta Machine Pay: `MACHINE_PAY_CONTA_NOME` limita o sistema aos leitores desse cliente
+
+## ☁️ Deploy na Render
+
+Use o `render.yaml` (New > Blueprint): cria o PostgreSQL e o backend juntos.
+Preencha na tela: `ADMIN_PASSWORD`, `FRONTEND_URL` (endereço da Vercel, aceita
+vários separados por vírgula), `ANTHROPIC_API_KEY`, `MACHINE_PAY_LOGIN`,
+`MACHINE_PAY_PASSWORD` e `MACHINE_PAY_CHAVE`. Use a **Internal Database URL**.
+
 ## 🚀 Tecnologias
 
 - Node.js v20.18.0
