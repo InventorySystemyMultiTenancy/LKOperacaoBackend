@@ -11,7 +11,8 @@ const AReceberLoja = sequelize.define(
     },
     roteiroId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      // Pode ficar sem roteiro: excluir um roteiro mantém os valores a receber
+      allowNull: true,
       field: "roteiro_id",
       references: { model: "roteiros", key: "id" },
     },

@@ -19,7 +19,8 @@ export async function resetSemanalRoteiros() {
         semanaInicio: new Date(),
         saldoRestante: 500.0  // Reset do orçamento semanal
       },
-      { where: {}, transaction: t },
+      // Roteiros com regra própria de reinício são reiniciados pelo job deles
+      { where: { reinicio: null }, transaction: t },
     );
 
     // 2. Resetar lojas dos roteiros
@@ -35,14 +36,15 @@ export async function resetSemanalRoteiros() {
     );
 
     // 4. Resetar conclusão das lojas nos roteiros (tabela roteiros_lojas)
-    await db.sequelize.query("UPDATE roteiros_lojas SET concluida = false", {
-      transaction: t,
-    });
+    await db.sequelize.query(
+      "UPDATE roteiros_lojas SET concluida = false WHERE roteiro_id IN (SELECT id FROM roteiros WHERE reinicio IS NULL)",
+      { transaction: t },
+    );
 
     // 5. Resetar status do roteiro 'Gruas Gigantes' (data fixa)
     await db.Roteiro.update(
       { status: "pendente" },
-      { where: { zona: 'Gruas Gigantes', data: '2026-02-24' }, transaction: t },
+      { where: { zona: 'Gruas Gigantes', data: '2026-02-24', reinicio: null }, transaction: t },
     );
 
     await t.commit();

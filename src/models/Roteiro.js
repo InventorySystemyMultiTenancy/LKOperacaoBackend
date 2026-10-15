@@ -64,6 +64,23 @@ const Roteiro = sequelize.define(
       field: "semana_inicio",
       comment: "Timestamp do último reset semanal; usado para filtrar movimentações ao calcular 'atendida'",
     },
+    categoria: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      comment: "Dias da Semana, Bolinhas, Gigantes ou uma categoria criada pelo ADMIN",
+    },
+    reinicio: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      comment:
+        "Quando volta a ficar pendente: { modo, diasSemana, intervaloDias, inicio, hora }. null = toda segunda (padrão)",
+    },
+    ultimoReinicio: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "ultimo_reinicio",
+      comment: "Quando o roteiro foi reiniciado (voltou a pendente) pela última vez",
+    },
     observacoes: {
       type: DataTypes.TEXT,
       allowNull: true,

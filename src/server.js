@@ -187,6 +187,26 @@ const startServer = async () => {
       "ALTER TABLE movimentacoes ADD COLUMN IF NOT EXISTS leitura_foto JSONB",
     );
 
+    // Roteiros: categoria e reinício configuráveis
+    await sequelize.query(
+      "ALTER TABLE roteiros ADD COLUMN IF NOT EXISTS categoria VARCHAR(50)",
+    );
+    await sequelize.query(
+      "ALTER TABLE roteiros ADD COLUMN IF NOT EXISTS reinicio JSONB",
+    );
+    await sequelize.query(
+      "ALTER TABLE roteiros ADD COLUMN IF NOT EXISTS ultimo_reinicio TIMESTAMP WITH TIME ZONE",
+    );
+    // Excluir roteiro mantém os valores a receber das lojas
+    await sequelize.query(
+      "ALTER TABLE areceber_lojas ALTER COLUMN roteiro_id DROP NOT NULL",
+    );
+    // Remove os roteiros "Bolinha N" criados automaticamente (sem categoria)
+    {
+      const { removerBolinhasAutomaticas } = await import("./services/roteiroGestaoService.js");
+      await removerBolinhasAutomaticas();
+    }
+
     // Criar admin padrão se não existir
     const { Usuario } = await import("./models/index.js");
     const adminEmail = process.env.ADMIN_EMAIL || "admin@toydiversoes.com";

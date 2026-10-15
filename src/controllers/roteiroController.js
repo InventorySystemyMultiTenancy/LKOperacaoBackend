@@ -79,6 +79,7 @@ export const excluirManutencao = async (req, res) => {
   }
 };
 
+import { infoReinicio } from "../services/roteiroGestaoService.js";
 import {
   atualizarManutencaoPersistida,
   ManutencaoServiceError,
@@ -671,55 +672,8 @@ export const listarRoteiros = async (req, res) => {
       order: [["zona", "ASC"]],
     });
 
-    // --- Garantir 20 roteiros bolinha (zona: Bolinha 1...20) ---
-    const dataHoje = whereClause.data;
-    let bolinhas = await Roteiro.findAll({
-      where: {
-        data: dataHoje,
-        zona: { [Op.iLike]: 'Bolinha%' }
-      },
-      order: [["zona", "ASC"]],
-    });
-    if (bolinhas.length < 20) {
-      const toCreate = 20 - bolinhas.length;
-      const existentes = new Set(bolinhas.map(b => b.zona));
-      for (let i = 1; i <= 20; i++) {
-        const nomeZona = `Bolinha ${i}`;
-        if (!existentes.has(nomeZona)) {
-          await Roteiro.create({
-            nome: nomeZona,
-            zona: nomeZona,
-            data: dataHoje,
-            status: "pendente",
-            totalMaquinas: 0,
-            maquinasConcluidas: 0,
-            saldoRestante: 500.0,
-          });
-        }
-      }
-      // Buscar novamente após criar
-      bolinhas = await Roteiro.findAll({
-        where: {
-          data: dataHoje,
-          zona: { [Op.iLike]: 'Bolinha%' }
-        },
-        order: [["zona", "ASC"]],
-      });
-    }
-    // Resetar status para pendente se necessário
-    for (const bolinha of bolinhas) {
-      if (!["pendente", "em_andamento", "concluido"].includes(bolinha.status)) {
-        bolinha.status = "pendente";
-        await bolinha.save();
-      }
-    }
-    // Adicionar bolinhas ao array de roteiros (se já não estiverem)
-    const roteirosIds = new Set(roteiros.map(r => r.id));
-    for (const bolinha of bolinhas) {
-      if (!roteirosIds.has(bolinha.id)) {
-        roteiros.push(bolinha);
-      }
-    }
+    // Os "Bolinha 1..20" automáticos foram removidos: roteiros agora são
+    // criados pelo ADMIN com nome, categoria e regra de reinício.
 
     // Ordenar roteiros por dia da semana e número
     roteiros = roteiros.sort((a, b) => {
@@ -922,6 +876,7 @@ export const listarRoteiros = async (req, res) => {
         });
 
         roteiroData.lojas = lojas;
+        Object.assign(roteiroData, infoReinicio(roteiroData));
         roteiroData.alertaFinalizacao = await montarAlertaFinalizacaoRoteiro(
           roteiroData,
           roteirosLojas,

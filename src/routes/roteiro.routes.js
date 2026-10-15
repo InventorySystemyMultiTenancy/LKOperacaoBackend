@@ -36,7 +36,15 @@ import {
   autenticar,
   autenticarOuIgnorar,
   autorizarRole,
+  autorizarPermissao,
 } from "../middlewares/auth.js";
+import {
+  criarRoteiro,
+  configurarRoteiro,
+  excluirRoteiroMantendoHistorico,
+  listarCategorias,
+  infoReinicio,
+} from "../services/roteiroGestaoService.js";
 import { cacheGet, clearHttpCacheOnSuccess } from "../middlewares/httpCache.js";
 import {
   salvarLocalizacaoRoteiro,
@@ -70,6 +78,49 @@ router.use(autenticar);
 
 // GET /api/roteiros - Lista todos os roteiros (filtrar por data opcional)
 router.get("/", cacheGet({ ttlSeconds: 20 }), listarRoteiros);
+
+// ---- Gestão de roteiros (nome, categoria, reinício) ----
+const gerenciarRoteiros = autorizarPermissao("roteiros.gerenciar", "ADMIN");
+const responderGestao = (res, error, mensagem) => {
+  if (error.status) return res.status(error.status).json({ error: error.message });
+  console.error(`[Roteiros] ${mensagem}:`, error);
+  return res.status(500).json({ error: mensagem });
+};
+
+router.get("/categorias", async (req, res) => {
+  try {
+    res.json(await listarCategorias());
+  } catch (error) {
+    responderGestao(res, error, "Erro ao listar categorias");
+  }
+});
+
+router.post("/", gerenciarRoteiros, clearHttpCacheOnSuccess(), async (req, res) => {
+  try {
+    const roteiro = await criarRoteiro(req.body);
+    res.status(201).json({ ...roteiro.toJSON(), ...infoReinicio(roteiro) });
+  } catch (error) {
+    responderGestao(res, error, "Erro ao criar roteiro");
+  }
+});
+
+router.put("/:id/configuracao", gerenciarRoteiros, clearHttpCacheOnSuccess(), async (req, res) => {
+  try {
+    const roteiro = await configurarRoteiro(req.params.id, req.body);
+    res.json({ ...roteiro.toJSON(), ...infoReinicio(roteiro) });
+  } catch (error) {
+    responderGestao(res, error, "Erro ao salvar o roteiro");
+  }
+});
+
+router.delete("/:id/excluir", gerenciarRoteiros, clearHttpCacheOnSuccess(), async (req, res) => {
+  try {
+    const { zona } = await excluirRoteiroMantendoHistorico(req.params.id);
+    res.json({ message: `Roteiro "${zona}" excluído. O histórico de coletas foi mantido.` });
+  } catch (error) {
+    responderGestao(res, error, "Erro ao excluir roteiro");
+  }
+});
 
 // GET /api/roteiros/alertas/finalizados-incompletos - Alertas para ADMIN
 router.get(
