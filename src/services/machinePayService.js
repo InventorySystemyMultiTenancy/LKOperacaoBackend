@@ -428,6 +428,24 @@ export async function consultarStatusMaquina({ posId, usrId }) {
 
 // ---- acao=maquinas: listagem "Dispositivos Cadastrados" ----
 
+// HTML de páginas do painel numa única sessão (para achar a conta pelo nome).
+// Página que falhar volta como null.
+export async function obterPaginasPainel(caminhos = []) {
+  const cookie = await login();
+  const paginas = [];
+  for (const caminho of caminhos) {
+    try {
+      const resposta = await fetch(`${baseUrl()}${caminho}`, {
+        headers: construirHeaders(cookie),
+      });
+      paginas.push({ caminho, html: resposta.ok ? await resposta.text() : null });
+    } catch {
+      paginas.push({ caminho, html: null });
+    }
+  }
+  return paginas;
+}
+
 export async function listarMaquinasCadastradas({ usrId } = {}) {
   const cookie = await login();
   const query = usrId ? `&usr=${encodeURIComponent(usrId)}` : "";

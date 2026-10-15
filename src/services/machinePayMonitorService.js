@@ -15,8 +15,13 @@ import {
 import {
   descobrirUsrPorExtrato,
   listarMaquinasCadastradas,
+  obterPaginasPainel,
   MachinePayServiceError,
 } from "./machinePayService.js";
+import {
+  candidatosUsrPorNome,
+  trechoAoRedorDoNome,
+} from "./machinePayContaParser.js";
 import { parsearPainelMaquinas } from "./machinePayPainelParser.js";
 
 const FUSO_HORARIO = "America/Sao_Paulo";
@@ -85,6 +90,9 @@ export const ehDaContaConfigurada = (cliente) => {
 };
 
 let contaResolvida = null;
+// Busca que falhou não é repetida a cada coleta (abre várias páginas do painel)
+let ultimaBuscaSemSucesso = 0;
+const ESPERA_NOVA_BUSCA_MS = 30 * 60 * 1000;
 
 // Descobre o usr da conta pelo nome do cliente que o painel mostra em cada
 // leitor. Procura na listagem geral e nas contas já conhecidas; guarda o
@@ -93,6 +101,15 @@ export async function resolverContaPorNome({ forcar = false } = {}) {
   const nome = nomeContaConfigurada();
   if (!nome) return null;
   if (contaResolvida && !forcar) return contaResolvida;
+
+  // MACHINE_PAY_USR informado à mão tem prioridade (atalho se a busca falhar)
+  const usrManual = usrsDoEnv()[0];
+  if (usrManual) {
+    contaResolvida = { usrId: usrManual, nome };
+    return contaResolvida;
+  }
+
+  if (!forcar && Date.now() - ultimaBuscaSemSucesso < ESPERA_NOVA_BUSCA_MS) return null;
 
   if (!forcar) {
     const salvas = await MachinePayConta.findAll({ raw: true });
@@ -123,7 +140,73 @@ export async function resolverContaPorNome({ forcar = false } = {}) {
     }
   }
 
+  // O login enxerga vários clientes, mas a listagem padrão mostra só um: procura
+  // o id do cliente no campo "Cliente" e nas páginas do painel, e confirma cada
+  // candidato listando as máquinas dele.
+  const paginas = await obterPaginasPainel(PAGINAS_BUSCA_CONTA).catch((error) => {
+    console.error("[MachinePay] Falha ao abrir o painel para achar a conta:", error.message);
+    return [];
+  });
+  const testados = new Set();
+  for (const { caminho, html } of paginas) {
+    if (!html) continue;
+    for (const candidato of candidatosUsrPorNome(html, nome, ehDaContaConfigurada)) {
+      if (testados.has(candidato.usrId)) continue;
+      testados.add(candidato.usrId);
+      const confirmada = await confirmarConta(candidato.usrId);
+      if (confirmada) {
+        console.log(
+          `[MachinePay] Conta "${nome}" encontrada: usr ${candidato.usrId} (${caminho}, ${candidato.origem})`,
+        );
+        contaResolvida = { usrId: candidato.usrId, nome: confirmada.nome || candidato.nome || nome };
+        await MachinePayConta.bulkCreate(
+          [{ usrId: candidato.usrId, nome: contaResolvida.nome.slice(0, 150) }],
+          { updateOnDuplicate: ["nome", "updatedAt"] },
+        );
+        return contaResolvida;
+      }
+    }
+  }
+
+  // Diagnóstico para ajustar a busca: onde o nome aparece no HTML do painel.
+  for (const { caminho, html } of paginas) {
+    if (!html) {
+      console.warn(`[MachinePay] Busca da conta: ${caminho || "/"} não abriu`);
+      continue;
+    }
+    const trecho = trechoAoRedorDoNome(html, nome);
+    console.warn(
+      `[MachinePay] Busca da conta: ${caminho || "/"} (${html.length} bytes) ${
+        trecho ? `→ trecho: ${trecho}` : "→ nome não aparece"
+      }`,
+    );
+  }
+  console.warn(`[MachinePay] Candidatos testados sem sucesso: ${[...testados].join(", ") || "nenhum"}`);
+
+  ultimaBuscaSemSucesso = Date.now();
   return null;
+}
+
+const PAGINAS_BUSCA_CONTA = [
+  "",
+  "maquinas.php",
+  "maquinas.php?acao=maquinas",
+  "index.php",
+  "clientes.php",
+  "usuarios.php",
+];
+
+// Confirma que o usr é da conta: o painel lista as máquinas dele e o nome do
+// cliente nelas bate com MACHINE_PAY_CONTA_NOME.
+async function confirmarConta(usrId) {
+  try {
+    const leituras = parsearPainelMaquinas(await listarMaquinasCadastradas({ usrId }));
+    const daConta = leituras.filter((l) => !l.cliente || ehDaContaConfigurada(l.cliente));
+    if (!leituras.length || daConta.length !== leituras.length) return null;
+    return { nome: daConta.find((l) => l.cliente)?.cliente || null };
+  } catch {
+    return null;
+  }
 }
 
 // Leitores (POS) da conta configurada, marcando quais já estão cadastrados
