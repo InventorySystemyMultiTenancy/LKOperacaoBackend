@@ -1,7 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 // Leitura dos contadores (relógios) IN/OUT de uma máquina a partir de foto,
-// usando visão do Claude. O resultado é sempre conferido pelo operador antes
+// usando visão da OpenAI. O resultado é sempre conferido pelo operador antes
 // de salvar: a tela preenche os campos e destaca a confiança da leitura.
 
 export class LeituraRelogioError extends Error {
@@ -12,7 +12,8 @@ export class LeituraRelogioError extends Error {
   }
 }
 
-const MODELO = "claude-opus-5-5";
+// Modelo com visão; pode ser trocado sem mexer no código (OPENAI_MODEL).
+const MODELO = () => process.env.OPENAI_MODEL || "gpt-4o";
 const TIPOS_IMAGEM = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const MAX_FOTOS = 3;
 
@@ -22,16 +23,17 @@ const SCHEMA_LEITURA = {
   required: ["contadorIn", "contadorOut", "confianca", "observacao"],
   properties: {
     contadorIn: {
-      anyOf: [{ type: "integer" }, { type: "null" }],
+      type: ["integer", "null"],
       description: "Valor do contador de ENTRADA (IN / crédito / moedas). null se não estiver visível.",
     },
     contadorOut: {
-      anyOf: [{ type: "integer" }, { type: "null" }],
+      type: ["integer", "null"],
       description: "Valor do contador de SAÍDA (OUT / prêmio). null se não estiver visível.",
     },
     confianca: {
       type: "string",
       enum: ["alta", "media", "baixa"],
+      description: "alta = todos os dígitos nítidos; baixa = algum dígito incerto.",
     },
     observacao: {
       type: "string",
@@ -55,17 +57,17 @@ Regras:
 
 let cliente = null;
 const obterCliente = () => {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     throw new LeituraRelogioError(
       503,
-      "Leitura por foto não configurada: defina ANTHROPIC_API_KEY no servidor.",
+      "Leitura por foto não configurada: defina OPENAI_API_KEY no servidor.",
     );
   }
-  if (!cliente) cliente = new Anthropic();
+  if (!cliente) cliente = new OpenAI({ timeout: 60_000, maxRetries: 2 });
   return cliente;
 };
 
-export const leituraPorFotoConfigurada = () => Boolean(process.env.ANTHROPIC_API_KEY);
+export const leituraPorFotoConfigurada = () => Boolean(process.env.OPENAI_API_KEY);
 
 // fotos: [{ base64, mediaType }] (base64 puro, sem o prefixo data:)
 // referencia: { contadorIn, contadorOut } da última leitura salva, para o
@@ -89,69 +91,55 @@ export async function lerRelogioPorFoto({ fotos, referencia }) {
       : "Não há leitura anterior desta máquina.";
 
   const conteudo = [
-    ...fotos.map((foto) => ({
-      type: "image",
-      source: { type: "base64", media_type: foto.mediaType, data: foto.base64 },
-    })),
     {
       type: "text",
-      text: `${textoReferencia}\n\nLeia os contadores de ENTRADA e SAÍDA ${fotos.length > 1 ? "nestas fotos (podem mostrar contadores diferentes da mesma máquina)" : "nesta foto"}.`,
-    },
-  ];
+      text: `${textoReferencia}
 
-  const requisicao = {
-    model: MODELO,
-    max_tokens: 16000,
-    system: INSTRUCOES,
-    output_config: {
-      effort: "medium",
-      format: { type: "json_schema", schema: SCHEMA_LEITURA },
+Leia os contadores de ENTRADA e SAÍDA ${fotos.length > 1 ? "nestas fotos (podem mostrar contadores diferentes da mesma máquina)" : "nesta foto"}.`,
     },
-    messages: [{ role: "user", content: conteudo }],
-  };
+    ...fotos.map((foto) => ({
+      type: "image_url",
+      image_url: { url: `data:${foto.mediaType};base64,${foto.base64}`, detail: "high" },
+    })),
+  ];
 
   let resposta;
   try {
-    try {
-      // Com fallback no servidor: se o modelo recusar, a API refaz em outro modelo.
-      resposta = await obterCliente().beta.messages.create({
-        ...requisicao,
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-      });
-    } catch (error) {
-      if (!(error instanceof Anthropic.BadRequestError)) throw error;
-      console.error("[Leitura por foto] Repetindo sem fallback:", error.message);
-      resposta = await obterCliente().messages.create(requisicao);
-    }
+    resposta = await obterCliente().chat.completions.create({
+      model: MODELO(),
+      messages: [
+        { role: "system", content: INSTRUCOES },
+        { role: "user", content: conteudo },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "leitura_relogio", strict: true, schema: SCHEMA_LEITURA },
+      },
+    });
   } catch (error) {
-    if (error instanceof Anthropic.AuthenticationError) {
-      throw new LeituraRelogioError(503, "Chave da API de leitura por foto inválida (ANTHROPIC_API_KEY).");
+    if (error instanceof OpenAI.AuthenticationError) {
+      throw new LeituraRelogioError(503, "Chave da OpenAI inválida (OPENAI_API_KEY).");
     }
-    if (error instanceof Anthropic.RateLimitError) {
-      throw new LeituraRelogioError(429, "Muitas leituras ao mesmo tempo. Tente de novo em alguns segundos.");
+    if (error instanceof OpenAI.RateLimitError) {
+      throw new LeituraRelogioError(429, "Limite da OpenAI atingido (muitas leituras ou sem crédito na conta). Tente de novo em alguns segundos.");
     }
-    if (error instanceof Anthropic.BadRequestError) {
+    if (error instanceof OpenAI.BadRequestError) {
       throw new LeituraRelogioError(400, `Não foi possível ler a foto: ${error.message}`);
     }
-    if (error instanceof Anthropic.APIError) {
+    if (error instanceof OpenAI.APIError) {
       throw new LeituraRelogioError(502, "Serviço de leitura por foto indisponível. Digite os números manualmente.");
     }
     throw error;
   }
 
-  if (resposta.stop_reason === "refusal") {
+  const mensagem = resposta.choices?.[0]?.message;
+  if (mensagem?.refusal) {
     throw new LeituraRelogioError(422, "A foto não pôde ser analisada. Digite os números manualmente.");
   }
 
-  const texto = resposta.content
-    .filter((bloco) => bloco.type === "text")
-    .map((bloco) => bloco.text)
-    .join("");
-
   let leitura;
   try {
-    leitura = JSON.parse(texto);
+    leitura = JSON.parse(mensagem?.content || "");
   } catch {
     throw new LeituraRelogioError(502, "Leitura da foto veio incompleta. Tente outra foto ou digite os números.");
   }

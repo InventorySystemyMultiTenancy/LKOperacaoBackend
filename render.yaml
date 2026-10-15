@@ -28,8 +28,8 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
-      # Leitura dos relógios por foto (Claude)
-      - key: ANTHROPIC_API_KEY
+      # Leitura dos relógios por foto (OpenAI)
+      - key: OPENAI_API_KEY
         sync: false
       # Machine Pay (Cyberpix) — conta da Toy Diversões
       - key: MACHINE_PAY_CONTA_NOME

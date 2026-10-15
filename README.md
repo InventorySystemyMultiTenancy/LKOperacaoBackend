@@ -22,14 +22,14 @@ faltando, digital maior que o contador e contador zerado/trocado.
 
 - Regras: `src/utils/conferenciaMaquina.js` (testes em `test/conferenciaMaquina.test.js`)
 - Rotas: `/api/conferencias` (painel, prévia, leitura por foto, recalcular)
-- Leitura por foto: `src/services/leituraRelogioService.js` (Claude, `ANTHROPIC_API_KEY`)
+- Leitura por foto: `src/services/leituraRelogioService.js` (OpenAI, `OPENAI_API_KEY`; modelo em `OPENAI_MODEL`, padrão `gpt-4o`)
 - Conta Machine Pay: `MACHINE_PAY_CONTA_NOME` limita o sistema aos leitores desse cliente
 
 ## ☁️ Deploy na Render
 
 Use o `render.yaml` (New > Blueprint): cria o PostgreSQL e o backend juntos.
 Preencha na tela: `ADMIN_PASSWORD`, `FRONTEND_URL` (endereço da Vercel, aceita
-vários separados por vírgula), `ANTHROPIC_API_KEY`, `MACHINE_PAY_LOGIN`,
+vários separados por vírgula), `OPENAI_API_KEY`, `MACHINE_PAY_LOGIN`,
 `MACHINE_PAY_PASSWORD` e `MACHINE_PAY_CHAVE`. Use a **Internal Database URL**.
 
 ## 🚀 Tecnologias
