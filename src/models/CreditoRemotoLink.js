@@ -2,7 +2,7 @@ import { DataTypes } from "sequelize";
 import { sequelize } from "../database/connection.js";
 
 // Link temporário de crédito remoto (voucher). Quem tem o link só consegue
-// enviar crédito Machine Pay para as máquinas da conta "Toy Diversões"
+// enviar crédito Machine Pay para as máquinas da conta "Camaleão Diversões"
 // (máquinas com machinePayPosId), até o limite em reais. O token em si nunca é
 // salvo em texto puro — a busca é pelo hash SHA-256 (tokenHash) e a cópia
 // pro admin fica cifrada com uma chave derivada do JWT_SECRET (tokenCifrado),

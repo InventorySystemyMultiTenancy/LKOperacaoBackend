@@ -1,7 +1,7 @@
 {
   "name": "toy-diversoes-backend",
   "version": "1.0.0",
-  "description": "Backend para gestão de máquinas de pelúcia Toy Diversões",
+  "description": "Backend para gestão de máquinas de pelúcia Camaleão Diversões",
   "main": "src/server.js",
   "type": "module",
   "scripts": {

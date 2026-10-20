@@ -1,4 +1,4 @@
-# Blueprint da Toy Diversões na Render.
+# Blueprint da Camaleão Diversões na Render.
 # Render > New > Blueprint > escolha este repositório: cria o banco PostgreSQL
 # e o backend já ligados. Os campos marcados com "sync: false" são pedidos na
 # tela (senhas e chaves nunca ficam no código).
@@ -31,7 +31,7 @@ services:
       # Leitura dos relógios por foto (OpenAI)
       - key: OPENAI_API_KEY
         sync: false
-      # Machine Pay (Cyberpix) — conta da Toy Diversões
+      # Machine Pay (Cyberpix) — conta da Camaleão Diversões
       - key: MACHINE_PAY_CONTA_NOME
         value: Gleison Lucasda Silva
       - key: MACHINE_PAY_LOGIN_URL

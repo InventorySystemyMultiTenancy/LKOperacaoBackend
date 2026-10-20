@@ -71,7 +71,7 @@ app.use("/public", express.static(path.join(__dirname, "..", "public")));
 // Root route
 app.get("/", (req, res) => {
   res.json({
-    message: "Toy Diversões API",
+    message: "Camaleão Diversões API",
     version: "1.0.0",
     status: "online",
     endpoints: {
@@ -167,7 +167,7 @@ const startServer = async () => {
       "ALTER TABLE machine_pay_horarios ALTER COLUMN horario_funcionamento DROP NOT NULL",
     );
 
-    // Conferência por leitura de relógio (Toy Diversões)
+    // Conferência por leitura de relógio (Camaleão Diversões)
     await sequelize.query(
       "ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS valor_pulso DECIMAL(10,2) NOT NULL DEFAULT 1",
     );

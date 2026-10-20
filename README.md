@@ -1,4 +1,4 @@
-# Toy Diversões - Backend API
+# Camaleão Diversões - Backend API
 
 Sistema de gestão de estoque para máquinas de pelúcia (garra).
 
