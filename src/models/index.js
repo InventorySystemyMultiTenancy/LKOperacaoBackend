@@ -41,6 +41,8 @@ import MachinePayEvento from "./MachinePayEvento.js";
 import MachinePayConta from "./MachinePayConta.js";
 import MachinePayHorario from "./MachinePayHorario.js";
 import Arrecadacao from "./Arrecadacao.js";
+import MachinePayPonto from "./MachinePayPonto.js";
+import MachinePayFechamento from "./MachinePayFechamento.js";
 import { sequelize } from "../database/connection.js";
 
 // AlertaResolvido -> Usuario (quem marcou como resolvido)
@@ -307,5 +309,7 @@ export {
   MachinePayConta,
   MachinePayHorario,
   Arrecadacao,
+  MachinePayPonto,
+  MachinePayFechamento,
   sequelize, // <-- exporta a conexão
 };

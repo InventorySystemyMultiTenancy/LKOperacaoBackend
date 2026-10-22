@@ -19,6 +19,10 @@ import {
   salvarHorarioMonitor,
   salvarRegiaoMonitor,
   listarLeitoresConta,
+  obterPontoMonitor,
+  salvarPontoMonitor,
+  fecharVendasMonitor,
+  listarFechamentosMonitor,
 } from "../controllers/machinePayMonitorController.js";
 import {
   autenticar,
@@ -78,6 +82,22 @@ router.get("/monitor/serie-diaria", ...acessoMonitor, serieDiaria);
 router.get("/monitor/eventos", ...acessoMonitor, listarEventos);
 router.post("/monitor/coletar", ...acessoMonitor, coletarAgora);
 router.get("/conta/leitores", ...acessoMonitor, listarLeitoresConta);
+
+// Relatório de vendas do ponto (PDF/WhatsApp) e fechamento no painel
+const acessoFechamento = [
+  ...acessoMonitor,
+  autorizarPermissao("machinePay.valores", "ADMIN", "FINANCEIRO"),
+  autorizarPermissao("machinePay.fechamento", "ADMIN", "FINANCEIRO"),
+];
+router.get("/monitor/maquinas/:posId/ponto", ...acessoFechamento, obterPontoMonitor);
+router.put("/monitor/maquinas/:posId/ponto", ...acessoFechamento, salvarPontoMonitor);
+router.get("/monitor/maquinas/:posId/fechamentos", ...acessoFechamento, listarFechamentosMonitor);
+router.post(
+  "/monitor/maquinas/:posId/fechamento",
+  ...acessoFechamento,
+  registrarLog("FECHAMENTO_MACHINE_PAY", "MachinePay"),
+  fecharVendasMonitor,
+);
 
 // Ações abertas pelo nome da máquina na página Machine Pay
 router.get(

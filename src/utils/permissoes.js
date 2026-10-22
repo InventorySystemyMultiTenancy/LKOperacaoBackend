@@ -40,6 +40,7 @@ export const PERMISSOES_VALIDAS = [
   "machinePay.creditoRemoto",
   "machinePay.devolucao",
   "machinePay.horario",
+  "machinePay.fechamento",
   "vouchers.gerenciar",
   "carrinhos.devolver",
 

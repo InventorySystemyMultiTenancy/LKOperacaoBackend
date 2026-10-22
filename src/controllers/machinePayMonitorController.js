@@ -6,7 +6,10 @@ import {
   MachinePayDiario,
   MachinePayEvento,
   MachinePayHorario,
+  MachinePayPonto,
+  MachinePayFechamento,
 } from "../models/index.js";
+import { resumirVendasPonto } from "../utils/relatorioVendasPonto.js";
 import {
   coletarStatusMachinePay,
   dataBrasil,
@@ -21,6 +24,7 @@ import {
   enviarCreditosMqttMachinePay,
   listarVendasMachinePay,
   devolverPagamentoConfirmado,
+  fecharFechamentoMachinePay,
 } from "../services/machinePayService.js";
 import {
   normalizarHorarioFuncionamento,
@@ -784,5 +788,159 @@ export const salvarRegiaoMonitor = async (req, res) => {
     res.json({ posId, regiao, salvoEm });
   } catch (error) {
     responderErro(res, error, "Erro ao salvar região");
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Relatório de vendas do ponto e fechamento no painel
+// ---------------------------------------------------------------------------
+
+const somenteDigitos = (valor) => String(valor || "").replace(/\D/g, "").slice(0, 20) || null;
+
+const dadosPonto = async (posId) => {
+  const ponto = await MachinePayPonto.findByPk(String(posId));
+  return {
+    posId: String(posId),
+    nomeContato: ponto?.nomeContato || null,
+    whatsapp: ponto?.whatsapp || null,
+    percentualComissao: Number(ponto?.percentualComissao) || 0,
+  };
+};
+
+const salvarDadosPonto = async (posId, { nomeContato, whatsapp, percentualComissao }) => {
+  const atual = await dadosPonto(posId);
+  const percentual =
+    percentualComissao === undefined || percentualComissao === ""
+      ? atual.percentualComissao
+      : Number(String(percentualComissao).replace(",", "."));
+  if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) {
+    throw new MachinePayServiceError(400, "A comissão deve ser de 0 a 100%.");
+  }
+  await MachinePayPonto.upsert({
+    posId: String(posId),
+    nomeContato: nomeContato === undefined ? atual.nomeContato : String(nomeContato || "").trim() || null,
+    whatsapp: whatsapp === undefined ? atual.whatsapp : somenteDigitos(whatsapp),
+    percentualComissao: percentual,
+  });
+  return dadosPonto(posId);
+};
+
+// GET /api/machine-pay/monitor/maquinas/:posId/ponto
+export const obterPontoMonitor = async (req, res) => {
+  try {
+    const leitor = await leitorConhecido(req.params.posId);
+    if (!leitor) return res.status(404).json({ error: "Leitor Machine Pay não encontrado" });
+    const ultimo = await MachinePayFechamento.findOne({
+      where: { posId: String(req.params.posId) },
+      order: [["createdAt", "DESC"]],
+      attributes: ["dataInicio", "dataFim", "createdAt", "fechadoNoPainel"],
+    });
+    res.json({ ...(await dadosPonto(req.params.posId)), nomePonto: leitor.nomePonto, ultimoFechamento: ultimo });
+  } catch (error) {
+    responderErro(res, error, "Erro ao carregar os dados do ponto");
+  }
+};
+
+// PUT /api/machine-pay/monitor/maquinas/:posId/ponto  { nomeContato, whatsapp, percentualComissao }
+export const salvarPontoMonitor = async (req, res) => {
+  try {
+    if (!(await leitorConhecido(req.params.posId))) {
+      return res.status(404).json({ error: "Leitor Machine Pay não encontrado" });
+    }
+    res.json(await salvarDadosPonto(req.params.posId, req.body || {}));
+  } catch (error) {
+    responderErro(res, error, "Erro ao salvar os dados do ponto");
+  }
+};
+
+// O painel responde 200 mesmo quando recusa: procura sinais de erro no texto.
+const PADRAO_ERRO_FECHAMENTO = /fatal error|erro|falha|inv[aá]lid|n[aã]o autorizad|acesso negado|sess[aã]o expirad/i;
+
+// POST /api/machine-pay/monitor/maquinas/:posId/fechamento
+// { dataInicio, dataFim, percentualComissao?, whatsapp?, nomeContato?, dinheiroEspecie? }
+export const fecharVendasMonitor = async (req, res) => {
+  try {
+    const { posId } = req.params;
+    const leitor = await leitorConhecido(posId);
+    if (!leitor) return res.status(404).json({ error: "Leitor Machine Pay não encontrado" });
+
+    const periodo = periodoExtrato(req.body || {}, req.usuario);
+    const ponto = await salvarDadosPonto(posId, req.body || {});
+    const dinheiroEspecie = Math.max(
+      0,
+      Number(String(req.body?.dinheiroEspecie ?? 0).replace(",", ".")) || 0,
+    );
+
+    const vendas = await listarVendasMachinePay({
+      posId,
+      inicio: periodo.inicioPainel,
+      fim: periodo.fimPainel,
+    });
+    const resumo = resumirVendasPonto(vendas, ponto.percentualComissao);
+
+    // Faz o "fechamento" no painel para esta máquina e período
+    let fechadoNoPainel = false;
+    let erroPainel = null;
+    try {
+      const { respostaBruta } = await fecharFechamentoMachinePay({
+        posId,
+        inicio: periodo.inicio,
+        fim: periodo.fim,
+        valor: dinheiroEspecie,
+      });
+      const texto = String(respostaBruta || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      console.log(`[MachinePay] Fechamento ${posId} ${periodo.inicio}..${periodo.fim}: ${texto.slice(0, 200)}`);
+      if (PADRAO_ERRO_FECHAMENTO.test(texto)) {
+        erroPainel = `o painel recusou: ${texto.slice(0, 200)}`;
+      } else {
+        fechadoNoPainel = true;
+      }
+    } catch (error) {
+      erroPainel = error.message;
+    }
+
+    const fechamento = await MachinePayFechamento.create({
+      posId: String(posId),
+      nomePonto: leitor.nomePonto,
+      dataInicio: periodo.inicio,
+      dataFim: periodo.fim,
+      quantidadeVendas: resumo.quantidadeVendas,
+      porMetodo: resumo.porMetodo,
+      totalVendas: resumo.totalVendas,
+      percentualComissao: resumo.percentualComissao,
+      totalComissao: resumo.totalComissao,
+      totalLiquido: resumo.totalLiquido,
+      dinheiroEspecie,
+      whatsapp: ponto.whatsapp,
+      usuarioId: req.usuario?.id || null,
+      usuarioNome: req.usuario?.nome || null,
+      fechadoNoPainel,
+      erroPainel,
+    });
+
+    res.status(201).json({
+      fechamento,
+      ponto,
+      vendas,
+      mensagem: fechadoNoPainel
+        ? "Fechamento feito na Machine Pay."
+        : `Relatório salvo, mas o fechamento na Machine Pay não foi confirmado (${erroPainel}). Confira no painel.`,
+    });
+  } catch (error) {
+    responderErro(res, error, "Erro ao fazer o fechamento");
+  }
+};
+
+// GET /api/machine-pay/monitor/maquinas/:posId/fechamentos
+export const listarFechamentosMonitor = async (req, res) => {
+  try {
+    const fechamentos = await MachinePayFechamento.findAll({
+      where: { posId: String(req.params.posId) },
+      order: [["createdAt", "DESC"]],
+      limit: 20,
+    });
+    res.json(fechamentos);
+  } catch (error) {
+    responderErro(res, error, "Erro ao listar fechamentos");
   }
 };
