@@ -10,8 +10,25 @@ import {
 } from "../controllers/relatorioController.js";
 import { autenticar, autorizarPermissao } from "../middlewares/auth.js";
 import { cacheGet } from "../middlewares/httpCache.js";
+import { resultadoPorLoja } from "../services/resultadoLojasService.js";
 
 const router = express.Router();
+
+// Resultado por loja: receita, custo das pelúcias (custo das compras),
+// comissão e lucro líquido. Usado em Financeiro, Relatórios e Gráficos.
+router.get(
+  "/resultado-lojas",
+  autenticar,
+  autorizarPermissao(["financeiro", "relatorios", "graficos"], "ADMIN", "FINANCEIRO"),
+  async (req, res) => {
+    try {
+      res.json(await resultadoPorLoja(req.query));
+    } catch (error) {
+      console.error("[Relatórios] Erro no resultado por loja:", error);
+      res.status(500).json({ error: "Erro ao calcular o resultado por loja" });
+    }
+  },
+);
 router.get(
   "/roteiro",
   autenticar,

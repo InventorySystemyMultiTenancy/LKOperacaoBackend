@@ -5,6 +5,7 @@ import {
   Loja,
   Maquina,
   Movimentacao,
+  MovimentacaoProduto,
   Roteiro,
 } from "../models/index.js";
 import { calcularArrecadacao } from "../utils/calculoArrecadacao.js";
@@ -32,6 +33,24 @@ const ultimaMovimentacao = (maquinaId) =>
     order: [["dataColeta", "DESC"]],
     attributes: ["id", "dataColeta", "totalPos", "contadorIn", "contadorOut"],
   });
+
+// Produto que está na máquina: o da última movimentação com produto
+async function produtoAtualDaMaquina(maquinaId, transaction) {
+  const ultimo = await MovimentacaoProduto.findOne({
+    include: [
+      {
+        model: Movimentacao,
+        attributes: [],
+        where: { maquinaId },
+        required: true,
+      },
+    ],
+    order: [[Movimentacao, "dataColeta", "DESC"]],
+    attributes: ["produtoId"],
+    transaction,
+  });
+  return ultimo?.produtoId || null;
+}
 
 // Dados para abrir o formulário de uma loja: comissão, máquinas com a última
 // leitura e quem recebeu a última conferência (nome/WhatsApp para sugerir).
@@ -214,6 +233,10 @@ export async function criarArrecadacao({ usuario, dados }) {
         transaction,
       });
       const estoque = Number(ultima?.totalPos) || 0;
+      // "Caiu" = prêmios que saíram: baixa do estoque da máquina e vira saída
+      // do produto que está nela (o último usado), para o custo da loja.
+      const sairam = Math.max(0, Number(item.caiu) || 0);
+      const produtoAtual = sairam ? await produtoAtualDaMaquina(item.maquinaId, transaction) : null;
       const mov = await Movimentacao.create(
         {
           maquinaId: item.maquinaId,
@@ -221,9 +244,8 @@ export async function criarArrecadacao({ usuario, dados }) {
           lojaId,
           roteiroId: roteiroId || null,
           dataColeta,
-          // Sem contagem de pelúcias no papel: o estoque da máquina não muda
-          totalPre: estoque,
-          sairam: 0,
+          totalPre: Math.max(0, estoque - sairam),
+          sairam,
           abastecidas: 0,
           fichas: 0,
           contadorIn: item.contadorIn,
@@ -241,6 +263,17 @@ export async function criarArrecadacao({ usuario, dados }) {
         },
         { transaction },
       );
+      if (produtoAtual && sairam) {
+        await MovimentacaoProduto.create(
+          {
+            movimentacaoId: mov.id,
+            produtoId: produtoAtual,
+            quantidadeSaiu: sairam,
+            quantidadeAbastecida: 0,
+          },
+          { transaction },
+        );
+      }
       item.movimentacaoId = mov.id;
       movimentacoesIds.push(mov.id);
     }

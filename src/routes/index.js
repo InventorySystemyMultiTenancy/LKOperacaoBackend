@@ -23,6 +23,8 @@ import creditoRemotoRoutes from "./creditoRemoto.routes.js";
 import conferenciaRoutes from "./conferencia.routes.js";
 import arrecadacaoRoutes from "./arrecadacao.routes.js";
 import dashboardRoutes from "./dashboard.routes.js";
+import listaComprasPendenteRoutes from "./listaComprasPendente.routes.js";
+import compraRoutes from "./compra.routes.js";
 const router = express.Router();
 router.use("/manutencoes", manutencaoRoutes);
 
@@ -52,5 +54,7 @@ router.use("/credito-remoto", creditoRemotoRoutes);
 router.use("/conferencias", conferenciaRoutes);
 router.use("/arrecadacoes", arrecadacaoRoutes);
 router.use("/dashboard", dashboardRoutes);
+router.use("/lista-compras-pendentes", listaComprasPendenteRoutes);
+router.use("/compras", compraRoutes);
 
 export default router;

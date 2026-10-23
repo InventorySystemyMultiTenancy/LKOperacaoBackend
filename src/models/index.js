@@ -43,6 +43,13 @@ import MachinePayHorario from "./MachinePayHorario.js";
 import Arrecadacao from "./Arrecadacao.js";
 import MachinePayPonto from "./MachinePayPonto.js";
 import MachinePayFechamento from "./MachinePayFechamento.js";
+import ListaComprasPendente from "./ListaComprasPendente.js";
+import ListaComprasLoja from "./ListaComprasLoja.js";
+import ListaComprasProduto from "./ListaComprasProduto.js";
+import Fornecedor from "./Fornecedor.js";
+import Compra from "./Compra.js";
+import CompraItem from "./CompraItem.js";
+import MovimentacaoEstoqueBase from "./MovimentacaoEstoqueBase.js";
 import { sequelize } from "../database/connection.js";
 
 // AlertaResolvido -> Usuario (quem marcou como resolvido)
@@ -274,6 +281,22 @@ CreditoRemotoLink.belongsTo(Usuario, { foreignKey: "criadoPorId", as: "criadoPor
 Arrecadacao.belongsTo(Loja, { foreignKey: "lojaId", as: "loja" });
 Arrecadacao.belongsTo(Usuario, { foreignKey: "usuarioId", as: "usuario" });
 
+// Lista de Compras Pendentes (aba Compras, vinda do Agarra Mais)
+ListaComprasPendente.hasMany(ListaComprasLoja, { foreignKey: "listaId", as: "lojas", onDelete: "CASCADE" });
+ListaComprasLoja.belongsTo(ListaComprasPendente, { foreignKey: "listaId", as: "lista" });
+ListaComprasLoja.hasMany(ListaComprasProduto, { foreignKey: "listaLojaId", as: "produtos", onDelete: "CASCADE" });
+ListaComprasProduto.belongsTo(ListaComprasLoja, { foreignKey: "listaLojaId", as: "listaLoja" });
+
+// Compras de produtos
+Compra.belongsTo(Fornecedor, { foreignKey: "fornecedorId", as: "fornecedor" });
+Fornecedor.hasMany(Compra, { foreignKey: "fornecedorId", as: "compras" });
+Compra.hasMany(CompraItem, { foreignKey: "compraId", as: "itens", onDelete: "CASCADE" });
+CompraItem.belongsTo(Compra, { foreignKey: "compraId", as: "compra" });
+CompraItem.belongsTo(Produto, { foreignKey: "produtoId", as: "produto" });
+CompraItem.belongsTo(Loja, { foreignKey: "lojaId", as: "loja" });
+MovimentacaoEstoqueBase.belongsTo(Produto, { foreignKey: "produtoId", as: "produto" });
+MovimentacaoEstoqueBase.belongsTo(Loja, { foreignKey: "lojaId", as: "loja" });
+
 export {
   Usuario,
   Loja,
@@ -311,5 +334,12 @@ export {
   Arrecadacao,
   MachinePayPonto,
   MachinePayFechamento,
+  ListaComprasPendente,
+  ListaComprasLoja,
+  ListaComprasProduto,
+  Fornecedor,
+  Compra,
+  CompraItem,
+  MovimentacaoEstoqueBase,
   sequelize, // <-- exporta a conexão
 };
